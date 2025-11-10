@@ -1,0 +1,226 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Activity - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-white mb-2">Edit Activity</h2>
+        <p class="text-secondary">Update activity details</p>
+    </div>
+    
+    <div class="glass rounded-lg shadow-xl p-8">
+        <form action="{{ url_for('activities.edit_activity', id=activity.id) }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <!-- Activity Description -->
+            <div class="mb-6">
+                <label for="activity_desc" class="block text-sm font-semibold text-white mb-2">
+                    Activity Description <span class="text-red-400">*</span>
+                </label>
+                <textarea id="activity_desc" name="activity_desc" rows="4" required
+                          class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition"
+                          placeholder="Describe the activity in detail...">{{ activity.activity_desc }}</textarea>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Source -->
+                <div>
+                    <label for="source" class="block text-sm font-semibold text-white mb-2">
+                        Source
+                    </label>
+                    <input type="text" id="source" name="source" value="{{ activity.source or '' }}"
+                           class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition"
+                           placeholder="e.g., BUM, BUT/DCRA, Internal...">
+                </div>
+                
+                <!-- Priority -->
+                <div>
+                    <label for="priority" class="block text-sm font-semibold text-white mb-2">
+                        Priority <span class="text-red-400">*</span>
+                    </label>
+                    <select id="priority" name="priority" required
+                            class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition">
+                        <option value="Low" {% if activity.priority == 'Low' %}selected{% endif %}>Low</option>
+                        <option value="Medium" {% if activity.priority == 'Medium' %}selected{% endif %}>Medium</option>
+                        <option value="High" {% if activity.priority == 'High' %}selected{% endif %}>High</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Start Date -->
+                <div>
+                    <label for="start_date" class="block text-sm font-semibold text-white mb-2">
+                        Start Date <span class="text-red-400">*</span>
+                    </label>
+                    <input type="date" id="start_date" name="start_date" required
+                           value="{{ activity.start_date.strftime('%Y-%m-%d') }}"
+                           class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition">
+                </div>
+                
+                <!-- End Date -->
+                <div>
+                    <label for="end_date" class="block text-sm font-semibold text-white mb-2">
+                        End Date <span class="text-secondary">(Optional)</span>
+                    </label>
+                    <input type="date" id="end_date" name="end_date"
+                           {% if activity.end_date %}value="{{ activity.end_date.strftime('%Y-%m-%d') }}"{% endif %}
+                           class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition">
+                </div>
+            </div>
+            
+            <!-- Status -->
+            <div class="mb-6">
+                <label for="status" class="block text-sm font-semibold text-white mb-2">
+                    Status
+                </label>
+                <select id="status" name="status"
+                        class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition"
+                        onchange="toggleClosingNote(this.value)">
+                    <option value="Ongoing" {% if activity.status == 'Ongoing' %}selected{% endif %}>Ongoing</option>
+                    <option value="Closed" {% if activity.status == 'Closed' %}selected{% endif %}>Closed</option>
+                    <option value="NA" {% if activity.status == 'NA' %}selected{% endif %}>N/A</option>
+                </select>
+            </div>
+            
+            <!-- Closing Note (shows only when status = Closed) -->
+            <div id="closingNoteDiv" class="mb-6 {% if activity.status != 'Closed' %}hidden{% endif %}">
+                <label for="closing_note" class="block text-sm font-semibold text-green-400 mb-2">
+                    <i class="fas fa-flag-checkered mr-1"></i> Closing Note <span class="text-red-400">*</span>
+                </label>
+                <textarea id="closing_note" name="closing_note" rows="3"
+                          class="w-full px-4 py-3 bg-dark-secondary border border-green-700/50 rounded-lg text-white focus:outline-none transition"
+                          placeholder="Required when closing: Why was this activity closed? What was the outcome?"></textarea>
+                <p class="text-xs text-secondary mt-1">This will be logged as an update when you save.</p>
+            </div>
+            
+            <!-- Blocking Points -->
+            <div class="mb-6">
+                <label for="blocking_points" class="block text-sm font-semibold text-white mb-2">
+                    Blocking Points
+                </label>
+                <textarea id="blocking_points" name="blocking_points" rows="3"
+                          class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition"
+                          placeholder="Any obstacles or blockers...">{{ activity.blocking_points or '' }}</textarea>
+            </div>
+            
+            <!-- Latest Update (read-only) -->
+            <div class="mb-6">
+                <div class="block text-sm font-semibold text-white mb-2">
+                    Latest Update
+                </div>
+                <div class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white break-words">
+                    {% if activity.observations %}
+                        {{ activity.observations }}
+                    {% else %}
+                        <span class="text-secondary">No updates yet.</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Update Log -->
+            <div class="mb-6">
+                <div class="block text-sm font-semibold text-white mb-2">Update Log</div>
+                <div class="max-h-48 overflow-y-auto space-y-2 pb-2">
+                    {% if updates %}
+                        {% for u in updates %}
+                        <div class="p-3 bg-dark-secondary border border-dark rounded-lg">
+                            <div class="text-xs text-secondary mb-1">
+                                {{ u.created_at|timeago }} · {{ u.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            <div class="text-sm text-white">{{ u.text }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="p-3 bg-dark-secondary border border-dark rounded-lg text-secondary">No updates recorded yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Add Update Form -->
+            <div class="mb-6">
+                <label for="new_update" class="block text-sm font-semibold text-white mb-2">
+                    <i class="fas fa-comment-medical mr-2"></i>Add Update <span class="text-secondary">(Optional)</span>
+                </label>
+                <textarea id="new_update" name="new_update" rows="3"
+                          class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition"
+                          placeholder="Optional: Add a status update, note, or comment..."></textarea>
+                <p class="text-xs text-secondary mt-1">Leave blank if you're just updating activity details without adding a new update.</p>
+            </div>
+            
+            <!-- Tags -->
+            <div class="mb-8">
+                <label for="tags" class="block text-sm font-semibold text-white mb-2">
+                    Tags <span class="text-secondary">(comma-separated)</span>
+                </label>
+                <input type="text" id="tags" name="tags"
+                       value="{{ activity.tags or '' }}"
+                       class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition"
+                       placeholder="e.g., project-alpha, bugfix, urgent">
+                <p class="text-sm text-secondary mt-2">Separate multiple tags with commas</p>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-4">
+                <button type="submit" 
+                        class="flex-1 btn-black font-semibold py-3 px-6 rounded-lg transition flex items-center justify-center">
+                    <i class="fas fa-save mr-2"></i>
+                    Update Activity
+                </button>
+                <a href="{{ url_for('activities.dashboard') }}" 
+                   class="flex-1 bg-dark-secondary hover:bg-dark-hover border border-dark text-secondary font-semibold py-3 px-6 rounded-lg transition flex items-center justify-center">
+                    <i class="fas fa-times mr-2"></i>
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleClosingNote(status) {
+    const closingNoteDiv = document.getElementById('closingNoteDiv');
+    if (status === 'Closed') {
+        closingNoteDiv.style.display = 'block';
+    } else {
+        closingNoteDiv.style.display = 'none';
+    }
+}
+
+// Form validation
+const editForm = document.querySelector('form[action*="edit_activity"]');
+if (editForm) {
+    editForm.addEventListener('submit', function(e) {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        const desc = document.getElementById('activity_desc').value.trim();
+        const status = document.getElementById('status').value;
+        const closingNote = document.getElementById('closing_note').value.trim();
+        const newUpdate = document.getElementById('new_update').value.trim();
+        
+        if (!desc) {
+            e.preventDefault();
+            if (typeof showToast === 'function') showToast('Activity description is required', 'error');
+            return false;
+        }
+        
+        if (endDate && startDate && new Date(endDate) < new Date(startDate)) {
+            e.preventDefault();
+            if (typeof showToast === 'function') showToast('End date cannot be before start date', 'error');
+            return false;
+        }
+        
+        // Require closing note when marking as Closed (unless there's a new update)
+        if (status === 'Closed' && !closingNote && !newUpdate) {
+            e.preventDefault();
+            if (typeof showToast === 'function') showToast('Please provide a closing note when marking activity as Closed', 'error');
+            document.getElementById('closingNoteDiv').classList.remove('hidden');
+            document.getElementById('closing_note').focus();
+            return false;
+        }
+    });
+}
+</script>
+{% endblock %}

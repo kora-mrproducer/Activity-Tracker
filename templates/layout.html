@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+        <title>{% block title %}Activity Tracker{% endblock %}</title>
+        
+        <!-- PWA / Standalone App Meta Tags -->
+        <meta name="application-name" content="Activity Tracker">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Activity Tracker">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="theme-color" content="#121212">
+        <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+        
+        <!-- Favicon -->
+        <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}">
+        <link rel="icon" type="image/png" sizes="128x128" href="{{ url_for('static', filename='icon-128.png') }}">
+        <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='icon-48.png') }}">
+        <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+        
+        <!-- Early theme application to avoid flash of wrong theme -->
+        <script>
+            (function(){
+                try {
+                    var key='tracker.theme';
+                    var t = localStorage.getItem(key);
+                    if(!t){
+                        t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+                    }
+                    if(t==='light'){
+                        document.documentElement.classList.add('theme-light');
+                    }
+                } catch(e) {}
+            })();
+        </script>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind-built.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fonts/outfit-local.css') }}">
+    <style>
+    /* Removed remote Google Fonts import for offline packaging; using local bundled Outfit fonts */
+        
+        :root { 
+            --base-font-size: 14px;
+            /* Material Design 3 - Sophisticated Monochrome Dark Theme */
+            --md-sys-color-background: #121212;
+            --md-sys-color-surface: #1e1e1e;
+            --md-sys-color-surface-variant: #2a2a2a;
+            --md-sys-color-surface-container-low: #1a1a1a;
+            --md-sys-color-surface-container: #212121;
+            --md-sys-color-surface-container-high: #2c2c2c;
+            --md-sys-color-surface-container-highest: #363636;
+            
+            --md-sys-color-on-surface: #e6e6e6;
+            --md-sys-color-on-surface-variant: #b3b3b3;
+            --md-sys-color-outline: #3f3f3f;
+            --md-sys-color-outline-variant: #2f2f2f;
+            
+            --md-sys-color-primary: #ffffff;
+            --md-sys-color-primary-container: #3a3a3a;
+            --md-sys-color-on-primary: #000000;
+            --md-sys-color-on-primary-container: #f5f5f5;
+            
+            --md-sys-color-error: #ff5449;
+            --md-sys-color-on-error: #ffffff;
+            
+            /* Material Elevation Shadows */
+            --md-sys-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+            --md-sys-elevation-2: 0 2px 6px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+            --md-sys-elevation-3: 0 4px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+            --md-sys-elevation-4: 0 6px 10px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+            --md-sys-elevation-5: 0 8px 12px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+            
+            /* Legacy mappings for compatibility */
+            --bg-primary: var(--md-sys-color-background);
+            --bg-secondary: var(--md-sys-color-surface);
+            --bg-hover: var(--md-sys-color-surface-container-high);
+            --text-primary: var(--md-sys-color-on-surface);
+            --text-secondary: var(--md-sys-color-on-surface-variant);
+            --border-color: var(--md-sys-color-outline);
+            --accent-color: var(--md-sys-color-primary);
+        }
+        
+        body { font-family: 'Outfit', sans-serif; background: var(--md-sys-color-background); font-size: var(--base-font-size); }
+        h1,h2,h3,h4,h5,h6 { line-height:1.3; font-weight: 500; letter-spacing: -0.01em; }
+        .text-xs { font-size: calc(var(--base-font-size) - 2px); }
+        .text-sm { font-size: calc(var(--base-font-size) - 1px); }
+        .text-base { font-size: var(--base-font-size); }
+        .text-lg { font-size: calc(var(--base-font-size) + 2px); }
+        .text-xl { font-size: calc(var(--base-font-size) + 4px); }
+        .text-2xl { font-size: calc(var(--base-font-size) + 10px); }
+        .text-3xl { font-size: calc(var(--base-font-size) + 16px); }
+
+    /* Soft Light Theme (cool grey, not pure white) */
+    :root.theme-light, html.theme-light, body.theme-light {
+            --md-sys-color-background: #f1f3f5;              /* cool grey background */
+            --md-sys-color-surface: #ffffff;                  /* light cards */
+            --md-sys-color-surface-variant: #eceff2;          /* subtle variant */
+            --md-sys-color-surface-container-low: #f5f7f9;
+            --md-sys-color-surface-container: #eef1f4;
+            --md-sys-color-surface-container-high: #e8ecf0;
+            --md-sys-color-surface-container-highest: #e2e7ec;
+
+            --md-sys-color-on-surface: #22262c;               /* dark text but not pure black */
+            --md-sys-color-on-surface-variant: #58606a;       /* muted labels */
+            --md-sys-color-outline: #c7cdd5;                  /* borders */
+            --md-sys-color-outline-variant: #d4d9e0;
+
+            --md-sys-color-primary: #0f172a;                  /* accents */
+            --md-sys-color-primary-container: #dbe2ea;        /* chips, badges */
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-on-primary-container: #1e293b;
+
+            --md-sys-color-error: #b42318;                    /* toned down red */
+            --md-sys-color-on-error: #ffffff;
+
+            /* Legacy mappings for compatibility */
+            --bg-primary: var(--md-sys-color-background);
+            --bg-secondary: var(--md-sys-color-surface);
+            --bg-hover: var(--md-sys-color-surface-container-high);
+            --text-primary: var(--md-sys-color-on-surface);
+            --text-secondary: var(--md-sys-color-on-surface-variant);
+            --border-color: var(--md-sys-color-outline);
+            --accent-color: var(--md-sys-color-primary);
+        }
+
+        /* Theme toggle button styles */
+        .theme-toggle {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface);
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+        .theme-toggle:hover { 
+            border-color: var(--md-sys-color-outline); 
+            color: var(--md-sys-color-on-surface); 
+        }
+        .theme-toggle:focus { 
+            outline: 2px solid transparent; 
+            box-shadow: 0 0 0 2px rgba(255,255,255,.15);
+        }
+
+        /* Smoothen theme transitions only during toggle */
+        body.theme-transition, body.theme-transition * {
+            transition: background-color .45s ease, color .45s ease, border-color .45s ease;
+        }
+
+    /* Light mode fixes: ensure white text utilities become readable */
+    html.theme-light .text-white, body.theme-light .text-white { color: var(--md-sys-color-on-surface) !important; }
+    html.theme-light .hover\:text-white:hover, body.theme-light .hover\:text-white:hover { color: var(--md-sys-color-on-surface) !important; }
+    html.theme-light .border-white, body.theme-light .border-white { border-color: var(--md-sys-color-outline) !important; }
+    html.theme-light .hover\:border-white\/40:hover, body.theme-light .hover\:border-white\/40:hover { border-color: var(--md-sys-color-outline) !important; }
+        
+        /* Material Design 3 Components */
+        .md-surface {
+            background: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            border-radius: 12px;
+            position: relative;
+        }
+        
+        .md-surface::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+        
+        .md-surface-variant {
+            background: var(--md-sys-color-surface-variant);
+            color: var(--md-sys-color-on-surface-variant);
+            border-radius: 12px;
+        }
+        
+        .md-elevation-1 { box-shadow: var(--md-sys-elevation-1); }
+        .md-elevation-2 { box-shadow: var(--md-sys-elevation-2); }
+        .md-elevation-3 { box-shadow: var(--md-sys-elevation-3); }
+        
+        /* Replace glass effect with Material Surface */
+        .glass {
+            background: var(--md-sys-color-surface);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: 12px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .glass:hover {
+            border-color: var(--md-sys-color-outline);
+        }
+        
+        .glass::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255,255,255,0.015) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,0.01) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        .glass:hover {
+            box-shadow: var(--md-sys-elevation-3);
+        }
+        
+        /* Custom Dark Theme - Using Material Variables */
+        .bg-dark-primary { background: var(--md-sys-color-background); }
+        .bg-dark-secondary { background: var(--md-sys-color-surface); }
+        .bg-dark-card { background: var(--md-sys-color-surface-container); }
+        .bg-dark-hover { background: var(--md-sys-color-surface-container-high); }
+        
+        .text-primary { color: var(--md-sys-color-on-surface); }
+        .text-secondary { color: var(--md-sys-color-on-surface-variant); }
+        
+        .border-dark { border-color: var(--md-sys-color-outline-variant); }
+        
+        /* Material Buttons */
+        .md-filled-button {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            padding: 10px 24px;
+            border-radius: 20px;
+            border: none;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+            transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--md-sys-elevation-1);
+        }
+        
+        .md-filled-button:hover {
+            box-shadow: var(--md-sys-elevation-2);
+            background: #f5f5f5;
+        }
+        
+        .md-outlined-button {
+            background: transparent;
+            color: var(--md-sys-color-on-surface);
+            padding: 10px 24px;
+            border-radius: 20px;
+            border: 1px solid var(--md-sys-color-outline);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .md-outlined-button:hover {
+            background: var(--md-sys-color-surface-container-highest);
+        }
+        
+        .md-icon-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        
+        .md-icon-button:hover {
+            background: var(--md-sys-color-surface-container-highest);
+        }
+        
+        .md-icon-button:active {
+            transform: scale(0.95);
+        }
+        
+        /* Darkest gray buttons with lightest text - Material Style */
+        .btn-black { 
+            background: var(--md-sys-color-surface-container-high); 
+            color: var(--md-sys-color-on-surface); 
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: 12px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-black:hover {
+            background: var(--md-sys-color-surface-container-highest);
+            box-shadow: var(--md-sys-elevation-1);
+            border-color: var(--md-sys-color-outline);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+        
+        /* Smooth transitions for theme changes */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        /* Loading animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* Pulse animation for notifications */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        /* Hover lift effect */
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Button press effect */
+        button:active, .btn-black:active {
+            transform: scale(0.98);
+        }
+        
+        /* Focus visible for accessibility */
+        *:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+        
+        button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { 
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Skip to content link */
+        .skip-to-content {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            z-index: 999;
+            padding: 1rem 1.5rem;
+            background: var(--accent-color);
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 0 0 0.5rem 0;
+        }
+        
+        .skip-to-content:focus {
+            left: 0;
+        }
+        
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-hover) 50%, var(--bg-secondary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #555555;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #666666;
+        }
+        
+        /* Input focus */
+        input:focus, textarea:focus, select:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); border-color: #3b82f6 !important; }
+        
+        /* Toast Notifications - Android Style Drop-Down */
+        #toast-container { 
+            position: fixed; 
+            top: 1rem; 
+            left: 50%; 
+            transform: translateX(-50%);
+            z-index: 9999; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.75rem; 
+            pointer-events: none;
+        }
+        
+        .toast { 
+            padding: 1rem 1.5rem; 
+            border-radius: 16px; 
+            font-size: 14px;
+            font-weight: 500;
+            display: flex; 
+            align-items: center; 
+            gap: 0.75rem; 
+            box-shadow: 0 8px 24px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.2);
+            backdrop-filter: blur(12px);
+            animation: toastDropIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: auto;
+            min-width: 280px;
+            max-width: 400px;
+        }
+        
+        /* Dark Mode Toast Colors (Material Design 3) */
+        .toast-success { 
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(56, 142, 60, 0.95));
+            border: 1px solid rgba(129, 199, 132, 0.3);
+            color: #ffffff;
+        }
+        .toast-error { 
+            background: linear-gradient(135deg, rgba(239, 83, 80, 0.95), rgba(211, 47, 47, 0.95));
+            border: 1px solid rgba(255, 138, 128, 0.3);
+            color: #ffffff;
+        }
+        .toast-info { 
+            background: linear-gradient(135deg, rgba(66, 165, 245, 0.95), rgba(33, 150, 243, 0.95));
+            border: 1px solid rgba(144, 202, 249, 0.3);
+            color: #ffffff;
+        }
+        
+        /* Light Mode Toast Colors */
+        html.theme-light .toast-success, body.theme-light .toast-success { 
+            background: linear-gradient(135deg, rgba(102, 187, 106, 0.95), rgba(76, 175, 80, 0.95));
+            border: 1px solid rgba(165, 214, 167, 0.5);
+            color: #1b5e20;
+        }
+        html.theme-light .toast-error, body.theme-light .toast-error { 
+            background: linear-gradient(135deg, rgba(239, 83, 80, 0.95), rgba(229, 57, 53, 0.95));
+            border: 1px solid rgba(255, 205, 210, 0.5);
+            color: #b71c1c;
+        }
+        html.theme-light .toast-info, body.theme-light .toast-info { 
+            background: linear-gradient(135deg, rgba(66, 165, 245, 0.95), rgba(25, 118, 210, 0.95));
+            border: 1px solid rgba(187, 222, 251, 0.5);
+            color: #0d47a1;
+        }
+        
+        .toast button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: auto;
+        }
+        
+        .toast button:hover {
+            background: rgba(255,255,255,0.35);
+        }
+        
+        html.theme-light .toast button, body.theme-light .toast button {
+            background: rgba(0,0,0,0.1);
+        }
+        
+        html.theme-light .toast button:hover, body.theme-light .toast button:hover {
+            background: rgba(0,0,0,0.2);
+        }
+        
+        @keyframes toastDropIn { 
+            0% { 
+                opacity: 0; 
+                transform: translateY(-100px) scale(0.9);
+            } 
+            50% {
+                transform: translateY(4px) scale(1);
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateY(0) scale(1);
+            } 
+        }
+        
+        @keyframes toastFadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+        }
+        
+        .toast.toast-removing {
+            animation: toastFadeOut 0.3s ease forwards;
+        }
+        
+        /* Table enhancements */
+        .activity-table thead { position: sticky; top: 0; z-index: 10; }
+    .activity-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .activity-table tbody tr { transition: background .18s ease; }
+    /* Softer hover shade for dark theme */
+    .activity-table tbody tr:hover { background: rgba(255,255,255,0.06) !important; }
+    /* Light theme: gentle grey hover + alternate rows adjust */
+    html.theme-light .activity-table tbody tr:nth-child(even), body.theme-light .activity-table tbody tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+    html.theme-light .activity-table tbody tr:hover, body.theme-light .activity-table tbody tr:hover { background: rgba(0,0,0,0.06) !important; }
+        .activity-table td, .activity-table th { padding: 0.5rem 1rem; vertical-align: top; }
+        /* Focus rings for accessibility - removed duplicates */
+        /* Density control */
+        body.compact .activity-table td, body.compact .activity-table th { padding: 0.25rem 0.75rem; }
+        body.compact .glass { padding: 1rem !important; }
+        /* Print styles */
+        @media print {
+            aside, .no-print, #toast-container { display: none !important; }
+            body { background: white; color: black; }
+            .glass { background: white; border: 1px solid #ccc; }
+        }
+        /* Responsive mobile */
+        @media (max-width: 768px) {
+            body { font-size: calc(var(--base-font-size) + 1px); }
+            aside { position: fixed; left: -100%; transition: left .3s; z-index: 100; height: 100%; }
+            aside.mobile-open { left: 0; }
+            main { width: 100%; }
+            .activity-table thead { display: none; }
+            .activity-table, .activity-table tbody, .activity-table tr, .activity-table td { display: block; width: 100%; }
+            .activity-table tr { margin-bottom: 1rem; border: 1px solid #555; border-radius: .5rem; padding: .75rem; background: #3a3a3a; }
+            .activity-table td { padding: .25rem 0 !important; border: none; }
+            .activity-table td:before { content: attr(data-label); font-weight: 600; display: inline-block; width: 6rem; color: #b0b0b0; }
+            .glass { padding: .75rem !important; }
+        }
+        .mobile-menu-btn { display: none; position: fixed; top: 1rem; left: 1rem; z-index: 101; }
+        @media (max-width: 768px) { .mobile-menu-btn { display: block; } }
+        
+        /* Floating Action Button */
+        .fab { 
+            position: fixed; 
+            bottom: 2rem; 
+            right: 2rem; 
+            width: 3.5rem; 
+            height: 3.5rem; 
+            border-radius: 50%; 
+            background: #ffffff; 
+            color: #000000; 
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,.6); 
+            display: flex;
+            align-items: center; 
+            justify-content: center; 
+            font-size: 1.25rem; 
+            z-index: 99;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .fab:hover { 
+            transform: scale(1.1); 
+            box-shadow: 0 6px 16px rgba(0,0,0,.7); 
+        }
+        .fab:active { 
+            transform: scale(0.95); 
+        }
+        /* Light mode: use darker grey for FAB for contrast */
+        html.theme-light .fab, body.theme-light .fab {
+            background: #e2e7ec; /* cool grey */
+            color: #0f172a;
+            box-shadow: 0 4px 10px rgba(15,23,42,0.15);
+        }
+        html.theme-light .fab:hover, body.theme-light .fab:hover {
+            box-shadow: 0 6px 16px rgba(15,23,42,0.22);
+        }
+        
+        /* Activity rail for wide screens */
+        .activity-rail { display: none; position: fixed; right: 0; top: 0; width: 20rem; height: 100vh; background: #2a2a2a; border-left: 1px solid #555; padding: 1.5rem; overflow-y: auto; z-index: 50; }
+        @media (min-width: 1400px) { .activity-rail { display: block; } main { margin-right: 20rem; } }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-dark-primary">
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+    
+    <button class="mobile-menu-btn btn-black px-3 py-2 rounded" onclick="document.querySelector('aside').classList.toggle('mobile-open')" aria-label="Toggle menu">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-dark-secondary border-r border-dark flex-shrink-0" role="navigation" aria-label="Main navigation">
+            <div class="p-4 border-b border-dark flex items-center gap-2">
+                <div class="flex-1">
+                    <h1 class="text-lg font-semibold flex items-center text-white">
+                        Activity Tracker
+                    </h1>
+                    <p class="text-secondary text-xs mt-0.5">Productivity Hub</p>
+                </div>
+                <!-- Theme Toggle (visible in both themes) -->
+                <button id="themeToggle" class="theme-toggle px-2 py-2 rounded-lg transition" aria-label="Toggle theme" title="Toggle theme">
+                    <i id="themeIcon" class="fas fa-moon"></i>
+                </button>
+            </div>
+            
+            <nav class="mt-4 px-3">
+                <a href="{{ url_for('activities.dashboard') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg {% if request.endpoint == 'activities.dashboard' %}bg-dark text-white{% endif %}">
+                    <i class="fas fa-home text-sm mr-2 w-4"></i>
+                    <span class="text-sm">Dashboard</span>
+                </a>
+                <a href="{{ url_for('activities.all_activities') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg {% if request.endpoint == 'activities.all_activities' %}bg-dark text-white{% endif %}">
+                    <i class="fas fa-list text-sm mr-2 w-4"></i>
+                    <span class="text-sm">All Activities</span>
+                </a>
+                <a href="{{ url_for('analytics.analytics') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg {% if request.endpoint == 'analytics.analytics' %}bg-dark text-white{% endif %}">
+                    <i class="fas fa-chart-bar text-sm mr-2 w-4"></i>
+                    <span class="text-sm">Analytics</span>
+                </a>
+                <a href="{{ url_for('activities.completed') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg {% if request.endpoint == 'activities.completed' %}bg-dark text-white{% endif %}">
+                    <i class="fas fa-check-circle text-sm mr-2 w-4"></i>
+                    <span class="text-sm">Completed</span>
+                </a>
+                
+                <div class="my-3 border-t border-dark/50"></div>
+                
+                <a href="{{ url_for('analytics.timeline') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg text-xs {% if request.endpoint == 'analytics.timeline' %}bg-dark text-white{% endif %}">
+                    <i class="fas fa-stream text-sm mr-2 w-4"></i>
+                    <span>Timeline</span>
+                </a>
+                <a href="{{ url_for('activities.report') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg text-xs {% if request.endpoint == 'activities.report' %}bg-dark text-white{% endif %}">
+                    <i class="fas fa-file-alt text-sm mr-2 w-4"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="{{ url_for('exports.export_csv') }}" class="flex items-center px-3 py-2 mb-1 text-secondary hover:text-white transition rounded-lg text-xs">
+                    <i class="fas fa-download text-sm mr-2 w-4"></i>
+                    <span>Export CSV</span>
+                </a>
+            </nav>
+            
+            <div class="absolute bottom-0 w-64 p-4 text-xs text-secondary border-t border-dark">
+                <p>Activity Tracker v1.0</p>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto" role="main" id="main-content">
+            <div class="p-6">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div id="flash-messages" style="display:none;">
+                        {% for category, message in messages %}
+                            <div data-category="{{ category }}" data-message="{{ message|e }}"></div>
+                        {% endfor %}
+                        </div>
+                        <!-- Flash messages handled by common.js -->
+                    {% endif %}
+                {% endwith %}
+                
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+        
+        <!-- Floating Action Button -->
+        <a href="{{ url_for('activities.add_activity') }}" class="fab" title="Add Activity" aria-label="Add new activity">
+            <i class="fas fa-plus"></i>
+        </a>
+    </div>
+    
+    <div id="toast-container"></div>
+    
+    <!-- Keyboard shortcuts help overlay -->
+    <div id="helpOverlay" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[1001]" style="display:none;" role="dialog" aria-labelledby="helpTitle" aria-modal="true">
+        <div class="glass rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="helpTitle" class="text-xl font-semibold text-white">
+                    <i class="fas fa-keyboard mr-2"></i>
+                    Keyboard Shortcuts
+                </h3>
+                <button onclick="document.getElementById('helpOverlay').style.display='none'" class="text-secondary hover:text-white" aria-label="Close help overlay">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Show this help</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">?</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Quick update (focus row first)</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">U</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Edit status (focus row first)</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">S</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Toggle goal completion</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">G</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Close modal/overlay</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">Esc</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Open search</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">/</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Navigate down/up</span>
+                    <div class="flex gap-2">
+                        <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">J</kbd>
+                        <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">K</kbd>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Edit focused activity</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">E</kbd>
+                </div>
+                <div class="flex justify-between items-center border-b border-dark pb-2">
+                    <span class="text-secondary">Add new activity</span>
+                    <kbd class="px-2 py-1 bg-dark-secondary border border-dark rounded text-white">A</kbd>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search Modal -->
+    <div id="searchModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-start justify-center z-[1001] pt-20" style="display:none;">
+        <div class="glass rounded-lg shadow-2xl max-w-2xl w-full mx-4">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <i class="fas fa-search text-2xl" style="color: var(--md-sys-color-primary);"></i>
+                    <input type="text" 
+                           id="searchInput" 
+                           placeholder="Search activities (desc, tags, source, blocking points...)"
+                           class="flex-1 px-4 py-3 rounded-lg border"
+                           style="background: var(--md-sys-color-surface-container); border-color: var(--md-sys-color-outline); color: var(--md-sys-color-on-surface);"
+                           autocomplete="off">
+                    <button onclick="closeSearch()" class="text-secondary hover:text-white">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <div id="searchResults" class="max-h-96 overflow-y-auto space-y-2">
+                    <div class="text-center py-8 text-secondary">
+                        <i class="fas fa-search text-4xl mb-2 opacity-50"></i>
+                        <p>Type to search activities...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Common JavaScript -->
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

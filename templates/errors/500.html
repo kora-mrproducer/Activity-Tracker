@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+
+{% block title %}Server Error - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[calc(100vh-200px)]">
+    <div class="text-center max-w-2xl mx-auto px-8">
+        <!-- Error Icon -->
+        <div class="mb-8">
+            <i class="fas fa-exclamation-triangle text-9xl" style="color: var(--md-sys-color-error);"></i>
+        </div>
+        
+        <!-- Error Code -->
+        <h1 class="text-6xl font-bold mb-4" style="color: var(--md-sys-color-on-surface);">500</h1>
+        
+        <!-- Error Message -->
+        <h2 class="text-2xl font-semibold mb-4" style="color: var(--md-sys-color-on-surface);">
+            Something Went Wrong
+        </h2>
+        
+        <p class="text-lg mb-8" style="color: var(--md-sys-color-on-surface-variant);">
+            We encountered an unexpected error. The issue has been logged and we'll look into it.
+        </p>
+        
+        <!-- Action Buttons -->
+        <div class="flex gap-4 justify-center flex-wrap">
+            <a href="{{ url_for('activities.dashboard') }}" 
+               class="btn-black inline-flex items-center gap-2 px-6 py-3 rounded-lg transition">
+                <i class="fas fa-home"></i>
+                Go to Dashboard
+            </a>
+            
+            <button onclick="window.location.reload()" 
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-lg transition"
+                    style="background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface);">
+                <i class="fas fa-sync-alt"></i>
+                Try Again
+            </button>
+        </div>
+        
+        <!-- Troubleshooting Tips -->
+        <div class="mt-12 pt-8 border-t text-left" style="border-color: var(--md-sys-color-outline);">
+            <h3 class="text-lg font-semibold mb-4" style="color: var(--md-sys-color-on-surface);">
+                <i class="fas fa-wrench mr-2"></i>Troubleshooting Tips:
+            </h3>
+            <ul class="space-y-2 text-sm" style="color: var(--md-sys-color-on-surface-variant);">
+                <li class="flex items-start gap-2">
+                    <i class="fas fa-check-circle mt-1" style="color: var(--md-sys-color-primary);"></i>
+                    <span>Try refreshing the page or going back to the dashboard</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fas fa-check-circle mt-1" style="color: var(--md-sys-color-primary);"></i>
+                    <span>Check your browser console (F12) for error details</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fas fa-check-circle mt-1" style="color: var(--md-sys-color-primary);"></i>
+                    <span>Check <code style="background: var(--md-sys-color-surface-container); padding: 2px 6px; border-radius: 4px;">logs/activity_tracker.log</code> for error messages</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <i class="fas fa-check-circle mt-1" style="color: var(--md-sys-color-primary);"></i>
+                    <span>If the problem persists, restore from a recent backup in <code style="background: var(--md-sys-color-surface-container); padding: 2px 6px; border-radius: 4px;">backups/</code></span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Activity Report PDF</title>
+	<style>
+		@page {
+			size: A4 landscape;
+			margin: 2cm;
+		}
+		body { 
+			font-family: 'Helvetica', 'Arial', sans-serif; 
+			font-size: 10px; 
+			color: #1a1a1a; 
+			line-height: 1.4;
+		}
+		.header {
+			border-bottom: 2px solid #2563eb;
+			padding-bottom: 12px;
+			margin-bottom: 16px;
+		}
+		h1 { 
+			font-size: 24px; 
+			margin: 0 0 6px;
+			color: #1e40af;
+			font-weight: bold;
+		}
+		h2 { font-size: 14px; margin: 20px 0 10px; color: #374151; font-weight: 600; }
+		.meta { 
+			margin: 8px 0 16px;
+			font-size: 11px;
+			color: #4b5563;
+			background: #f9fafb;
+			padding: 10px;
+			border-left: 3px solid #2563eb;
+		}
+		.meta strong { color: #1f2937; }
+		table { 
+			width: 100%; 
+			border-collapse: collapse; 
+			margin-top: 12px;
+			font-size: 9px;
+		}
+		th { 
+			background: #1e40af; 
+			color: white;
+			font-weight: 600;
+			padding: 8px 6px;
+			text-align: left;
+			border: none;
+		}
+		td { 
+			border: 1px solid #e5e7eb; 
+			padding: 6px;
+			vertical-align: top;
+		}
+		tr:nth-child(even) { background: #f9fafb; }
+		tr:nth-child(odd) { background: white; }
+		.badge { 
+			display: inline-block; 
+			padding: 2px 8px; 
+			border-radius: 3px; 
+			font-size: 8px; 
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+		.badge.high { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+		.badge.medium { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+		.badge.low { background: #dbeafe; color: #1e3a8a; border: 1px solid #93c5fd; }
+		.badge.closed { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+		.badge.ongoing { background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; }
+		.badge.na { background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
+		small { font-size: 8px; color: #6b7280; }
+		.empty-state {
+			text-align: center;
+			padding: 40px;
+			color: #9ca3af;
+			font-size: 12px;
+		}
+		footer { 
+			margin-top: 24px; 
+			padding-top: 12px;
+			border-top: 1px solid #e5e7eb;
+			font-size: 9px; 
+			text-align: center; 
+			color: #6b7280;
+		}
+		.logo {
+			font-weight: bold;
+			color: #2563eb;
+			font-size: 11px;
+		}
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>📊 Activity Report</h1>
+		<div class="logo">Activity Tracker</div>
+	</div>
+	
+	<div class="meta">
+		<strong>Report Period:</strong> {{ start_date.strftime('%B %d, %Y') }} – {{ end_date.strftime('%B %d, %Y') }}<br>
+		<strong>Generated:</strong> {{ now().strftime('%Y-%m-%d %H:%M') }}<br>
+		<strong>Summary:</strong> Total: {{ activities|length }} | Completed: {{ activities|selectattr('status','equalto','Closed')|list|length }} | Ongoing: {{ activities|selectattr('status','equalto','Ongoing')|list|length }}
+	</div>
+	
+	{% if activities %}
+	<table>
+		<thead>
+			<tr>
+				<th style="width: 5%;">#</th>
+				<th style="width: 30%;">Description</th>
+				<th style="width: 10%;">Source</th>
+				<th style="width: 9%;">Start Date</th>
+				<th style="width: 8%;">Status</th>
+				<th style="width: 8%;">Priority</th>
+				<th style="width: 15%;">Blocking Points</th>
+				<th style="width: 15%;">Latest Observation</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for a in activities %}
+			<tr>
+				<td style="text-align: center;">{{ loop.index }}</td>
+				<td>
+					<strong>{{ a.activity_desc }}</strong>
+					{% if a.tags %}<br><small>🏷️ {{ a.tags }}</small>{% endif %}
+				</td>
+				<td>{{ a.source or '—' }}</td>
+				<td>{{ a.start_date.strftime('%Y-%m-%d') if a.start_date else '—' }}</td>
+				<td>
+					{% if a.status == 'Closed' %}<span class="badge closed">Closed</span>
+					{% elif a.status == 'Ongoing' %}<span class="badge ongoing">Ongoing</span>
+					{% else %}<span class="badge na">{{ a.status }}</span>{% endif %}
+				</td>
+				<td>
+					{% if a.priority == 'High' %}<span class="badge high">High</span>
+					{% elif a.priority == 'Medium' %}<span class="badge medium">Medium</span>
+					{% else %}<span class="badge low">Low</span>{% endif %}
+				</td>
+				<td>{{ a.blocking_points[:100] if a.blocking_points else '—' }}</td>
+				<td>{{ a.observations[:100] if a.observations else '—' }}</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+	{% else %}
+	<div class="empty-state">
+		<p><strong>No activities found</strong><br>
+		There are no activities in the selected date range.</p>
+	</div>
+	{% endif %}
+	
+	<footer>
+		<strong>Activity Tracker</strong> | Confidential Report | For Personal Use Only
+	</footer>
+</body>
+</html>

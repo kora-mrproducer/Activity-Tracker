@@ -1,0 +1,269 @@
+{% extends "layout.html" %}
+
+{% block title %}Analytics - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-semibold text-white mb-1">Analytics</h2>
+    <p class="text-secondary text-sm">Productivity insights</p>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+    <!-- Total Activities -->
+    <div class="bg-dark-secondary border border-dark rounded-lg p-4">
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-xs font-medium text-secondary">Total</h3>
+            <i class="fas fa-tasks text-white text-sm opacity-50"></i>
+        </div>
+        <p class="text-2xl font-semibold text-white">{{ stats.total_activities }}</p>
+        <p class="text-xs text-secondary mt-0.5">{{ stats.ongoing_count }} ongoing</p>
+    </div>
+
+    <!-- Completed This Month -->
+    <div class="bg-dark-secondary border border-dark rounded-lg p-4">
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-xs font-medium text-secondary">Completed</h3>
+            <i class="fas fa-check-circle text-green-400 text-sm opacity-50"></i>
+        </div>
+        <p class="text-2xl font-semibold text-white">{{ stats.completed_this_month }}</p>
+        <p class="text-xs text-secondary mt-0.5">
+            {% if stats.completed_last_month > 0 %}
+                {% set change = ((stats.completed_this_month - stats.completed_last_month) / stats.completed_last_month * 100) | int %}
+                {% if change > 0 %}
+                    <span class="text-green-400">↑{{ change }}%</span>
+                {% elif change < 0 %}
+                    <span class="text-red-400">↓{{ change|abs }}%</span>
+                {% else %}
+                    →0%
+                {% endif %}
+            {% else %}
+                First month
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Avg Time to Complete -->
+    <div class="bg-dark-secondary border border-dark rounded-lg p-4">
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-xs font-medium text-secondary">Avg Days</h3>
+            <i class="fas fa-clock text-yellow-400 text-sm opacity-50"></i>
+        </div>
+        <p class="text-2xl font-semibold text-white">{{ stats.avg_days_to_complete }}</p>
+        <p class="text-xs text-secondary mt-0.5">High: {{ stats.avg_days_high_priority }}d</p>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- Completion Velocity Chart -->
+    <div class="bg-dark-secondary border border-dark rounded-lg p-4">
+        <h3 class="text-sm font-medium text-white mb-3 flex items-center">
+            <i class="fas fa-chart-line text-white text-sm mr-2 opacity-60"></i>
+            Completion Velocity
+        </h3>
+        <canvas id="completionChart" style="max-height: 250px;"></canvas>
+    </div>
+
+    <!-- Priority Distribution -->
+    <div class="bg-dark-secondary border border-dark rounded-lg p-4">
+        <h3 class="text-sm font-medium text-white mb-3 flex items-center">
+            <i class="fas fa-chart-pie text-white text-sm mr-2 opacity-60"></i>
+            Priority Distribution
+        </h3>
+        <canvas id="priorityChart" style="max-height: 250px;"></canvas>
+    </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Status Distribution -->
+    <div class="glass rounded-lg shadow-xl p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+            <i class="fas fa-chart-bar text-primary mr-2"></i>
+            Status Breakdown
+        </h3>
+        <canvas id="statusChart" style="max-height: 300px;"></canvas>
+    </div>
+
+    <!-- Activity Duration -->
+    <div class="glass rounded-lg shadow-xl p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+            <i class="fas fa-hourglass-half text-primary mr-2"></i>
+            Average Duration by Priority
+        </h3>
+        <canvas id="durationChart" style="max-height: 300px;"></canvas>
+    </div>
+</div>
+
+<!-- Tag Cloud & Long Running Activities -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Tag Cloud -->
+    <div class="glass rounded-lg shadow-xl p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+            <i class="fas fa-tags text-primary mr-2"></i>
+            Popular Tags
+        </h3>
+        <div class="flex flex-wrap gap-2">
+            {% for tag, count in stats.tag_counts %}
+                <span class="px-3 py-1 bg-dark-secondary border border-dark rounded-full text-white text-sm">
+                    {{ tag }} <span class="text-secondary">({{ count }})</span>
+                </span>
+            {% endfor %}
+            {% if not stats.tag_counts %}
+                <p class="text-secondary text-sm">No tags used yet</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Long Running Activities -->
+    <div class="glass rounded-lg shadow-xl p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+            <i class="fas fa-stopwatch text-yellow-400 mr-2"></i>
+            Longest Running (Top 5)
+        </h3>
+        <div class="space-y-2">
+            {% for activity in long_running_activities %}
+                <div class="flex items-center justify-between p-2 bg-dark-secondary rounded border border-dark">
+                    <span class="text-white text-sm truncate flex-1">{{ activity.activity_desc[:50] }}...</span>
+                    <span class="text-secondary text-xs ml-2">{{ activity.days_running }}d</span>
+                </div>
+            {% endfor %}
+            {% if not long_running_activities %}
+                <p class="text-secondary text-sm">No ongoing activities</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Stale Activities Warning -->
+{% if stale_activities_list %}
+<div class="glass rounded-lg shadow-xl p-6 mb-6 border-l-4 border-yellow-400">
+    <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+        <i class="fas fa-exclamation-circle text-yellow-400 mr-2"></i>
+        ⚠️ Stale Activities (No updates in 14+ days)
+    </h3>
+    <div class="space-y-2">
+        {% for activity in stale_activities_list %}
+            <div class="flex items-center justify-between p-3 bg-dark-secondary rounded border border-dark hover:bg-dark-hover transition">
+                <div class="flex-1">
+                    <a href="{{ url_for('activities.edit_activity', id=activity.id) }}" class="text-white hover:text-primary">
+                        {{ activity.activity_desc }}
+                    </a>
+                    <p class="text-xs text-secondary mt-1">
+                        Last update: {{ activity.days_since_update }}d ago | Priority: {{ activity.priority }}
+                    </p>
+                </div>
+                <span class="px-3 py-1 bg-yellow-400 bg-opacity-20 text-yellow-400 rounded text-xs">
+                    Needs Attention
+                </span>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+<script id="analytics-data" type="application/json">{{ stats | tojson }}</script>
+<script>
+// Parse analytics data once to avoid inline Jinja inside JS (reduces linter noise)
+const stats = JSON.parse(document.getElementById('analytics-data').textContent);
+// Chart.js configuration
+const chartConfig = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+        legend: {
+            labels: {
+                color: '#9ca3af'
+            }
+        }
+    },
+    scales: {
+        y: {
+            ticks: { color: '#9ca3af' },
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+        },
+        x: {
+            ticks: { color: '#9ca3af' },
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+        }
+    }
+};
+
+// Completion Velocity Chart
+const completionCtx = document.getElementById('completionChart').getContext('2d');
+new Chart(completionCtx, {
+    type: 'line',
+    data: {
+        labels: stats.completion_months,
+        datasets: [{
+            label: 'Completed Activities',
+            data: stats.completion_counts,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: chartConfig
+});
+
+// Priority Distribution Chart
+const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+new Chart(priorityCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['High', 'Medium', 'Low'],
+        datasets: [{
+            data: [stats.priority_high, stats.priority_medium, stats.priority_low],
+            backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+            borderWidth: 2,
+            borderColor: '#1a1d29'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                labels: { color: '#9ca3af' }
+            }
+        }
+    }
+});
+
+// Status Distribution Chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Ongoing', 'Closed', 'N/A'],
+        datasets: [{
+            label: 'Activities',
+            data: [stats.status_ongoing, stats.status_closed, stats.status_na],
+            backgroundColor: ['#3b82f6', '#10b981', '#6b7280'],
+            borderWidth: 0
+        }]
+    },
+    options: chartConfig
+});
+
+// Duration by Priority Chart
+const durationCtx = document.getElementById('durationChart').getContext('2d');
+new Chart(durationCtx, {
+    type: 'bar',
+    data: {
+        labels: ['High Priority', 'Medium Priority', 'Low Priority'],
+        datasets: [{
+            label: 'Avg Days',
+            data: [stats.avg_days_high_priority, stats.avg_days_medium_priority, stats.avg_days_low_priority],
+            backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+            borderWidth: 0
+        }]
+    },
+    options: chartConfig
+});
+</script>
+
+{% endblock %}

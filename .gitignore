@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Flask
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups
+backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.secret_key
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# PyInstaller
+*.spec
+*.manifest
+*.exe
+*.ico
+release/
+
+# Build artifacts
+gtk3-installer.exe
+tailwindcss.exe
+
+# Generated files
+generate_icon.py

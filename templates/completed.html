@@ -1,0 +1,282 @@
+{% extends "layout.html" %}
+
+{% block title %}Completed Activities - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-white mb-2">✅ Completed Activities</h2>
+            <p class="text-secondary">Archive of finished tasks and projects</p>
+        </div>
+        <a href="{{ url_for('analytics.analytics') }}" class="btn-black px-4 py-2 rounded-lg text-sm transition flex items-center gap-2">
+            <i class="fas fa-chart-line"></i>
+            View Analytics
+        </a>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="glass rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-secondary">Total Completed</span>
+            <i class="fas fa-tasks text-green-400"></i>
+        </div>
+        <p class="text-2xl font-bold text-white">{{ total_completed }}</p>
+        <p class="text-xs text-secondary mt-1">All-time achievements</p>
+    </div>
+    
+    <div class="glass rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-secondary">High Priority</span>
+            <i class="fas fa-exclamation-circle text-red-400"></i>
+        </div>
+        <p class="text-2xl font-bold text-white">{{ high_count }}</p>
+        <p class="text-xs text-secondary mt-1">Critical tasks done</p>
+    </div>
+    
+    <div class="glass rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-secondary">This Month</span>
+            <i class="fas fa-calendar-check text-blue-400"></i>
+        </div>
+        <p class="text-2xl font-bold text-white">{{ this_month_count }}</p>
+        <p class="text-xs text-secondary mt-1">Recent completions</p>
+    </div>
+    
+    <div class="glass rounded-lg p-4">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-secondary">Success Rate</span>
+            <i class="fas fa-trophy text-yellow-400"></i>
+        </div>
+        <p class="text-2xl font-bold text-white">{{ ((total_completed / (total_completed + 1)) * 100) | int }}%</p>
+        <p class="text-xs text-secondary mt-1">Completion metric</p>
+    </div>
+</div>
+
+{% if activities %}
+<div class="glass rounded-lg shadow-xl overflow-hidden">
+    <!-- Filter Bar -->
+    <div class="p-4 bg-dark-secondary border-b border-dark">
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm font-semibold text-white">Filter:</span>
+            <select id="priorityFilter" class="px-3 py-2 bg-dark-hover border border-dark rounded-lg text-white text-sm">
+                <option value="all">All Priorities</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+            </select>
+            <select id="sortBy" class="px-3 py-2 bg-dark-hover border border-dark rounded-lg text-white text-sm">
+                <option value="recent">Most Recent</option>
+                <option value="oldest">Oldest First</option>
+                <option value="priority">By Priority</option>
+            </select>
+            <a href="{{ url_for('exports.export_csv') }}" class="ml-auto btn-black px-4 py-2 rounded-lg text-sm transition">
+                <i class="fas fa-download mr-1"></i> Export
+            </a>
+        </div>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-dark-secondary border-b border-dark">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase">Activity</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase">Source</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase">Started</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase">Completed</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase">Priority</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-secondary uppercase">Tags</th>
+                    <th class="px-6 py-4 text-center text-xs font-semibold text-secondary uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-dark">
+                {% for activity in activities %}
+                <tr class="hover:bg-dark-secondary transition">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-white">{{ activity.activity_desc[:80] }}{% if activity.activity_desc|length > 80 %}...{% endif %}</div>
+                        {% if activity.observations %}
+                        <div class="text-sm text-secondary mt-1">
+                            <i class="fas fa-clipboard-list mr-1"></i>
+                            {{ activity.observations[:60] }}{% if activity.observations|length > 60 %}...{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex px-3 py-1 text-xs font-medium bg-dark-secondary border border-dark text-white rounded">
+                            {{ activity.source or 'N/A' }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-secondary">
+                        {{ activity.start_date.strftime('%Y-%m-%d') }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-secondary">
+                        {% if activity.end_date %}
+                            {{ activity.end_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            <span class="text-secondary">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if activity.priority == 'High' %}
+                            <span class="inline-flex px-3 py-1 text-xs font-medium bg-red-900/30 text-red-400 border border-red-800/50 rounded-full">
+                                <i class="fas fa-exclamation-circle mr-1"></i> High
+                            </span>
+                        {% elif activity.priority == 'Medium' %}
+                            <span class="inline-flex px-3 py-1 text-xs font-medium bg-yellow-900/30 text-yellow-400 border border-yellow-800/50 rounded-full">
+                                <i class="fas fa-minus-circle mr-1"></i> Medium
+                            </span>
+                        {% else %}
+                            <span class="inline-flex px-3 py-1 text-xs font-medium bg-blue-900/30 text-blue-400 border border-blue-800/50 rounded-full">
+                                <i class="fas fa-info-circle mr-1"></i> Low
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if activity.tags %}
+                            {% for tag in activity.tags.split(',')[:3] %}
+                                <span class="inline-flex px-2 py-1 text-xs bg-dark-secondary border border-dark text-white rounded mr-1 mb-1">
+                                    #{{ tag.strip() }}
+                                </span>
+                            {% endfor %}
+                            {% if activity.tags.split(',')|length > 3 %}
+                                <span class="text-xs text-secondary">+{{ activity.tags.split(',')|length - 3 }}</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <a href="{{ url_for('activities.edit_activity', id=activity.id) }}" 
+                               class="text-white hover:text-primary transition" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('activities.add_activity') }}?clone={{ activity.id }}" 
+                               class="text-blue-400 hover:text-blue-300 transition" title="Clone Activity">
+                                <i class="fas fa-clone"></i>
+                            </a>
+                            <button class="delete-activity-btn text-red-400 hover:text-red-300 transition" 
+                                    data-activity-id="{{ activity.id }}"
+                                    data-activity-desc="{{ activity.activity_desc[:50]|e }}"
+                                    title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="glass rounded-lg shadow-xl p-12 text-center">
+    <i class="fas fa-inbox text-secondary text-6xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-white mb-2">No completed activities yet</h3>
+    <p class="text-secondary mb-6">Activities marked as "Closed" will appear here</p>
+    <a href="{{ url_for('activities.dashboard') }}" class="btn-black px-6 py-3 rounded-lg inline-flex items-center transition">
+        <i class="fas fa-arrow-left mr-2"></i>
+        Back to Dashboard
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Filter and sort functionality
+const rows = Array.from(document.querySelectorAll('tbody tr'));
+const priorityFilter = document.getElementById('priorityFilter');
+const sortBy = document.getElementById('sortBy');
+
+if (priorityFilter && rows.length > 0) {
+    priorityFilter.addEventListener('change', applyFilters);
+}
+if (sortBy && rows.length > 0) {
+    sortBy.addEventListener('change', applyFilters);
+}
+
+function applyFilters() {
+    const priority = priorityFilter ? priorityFilter.value : 'all';
+    const sort = sortBy ? sortBy.value : 'recent';
+    
+    // Filter
+    rows.forEach(row => {
+        if (priority === 'all') {
+            row.style.display = '';
+        } else {
+            const hasPriority = row.textContent.includes(priority);
+            row.style.display = hasPriority ? '' : 'none';
+        }
+    });
+    
+    // Sort (basic implementation)
+    const tbody = rows[0]?.parentElement;
+    if (!tbody) return;
+    
+    const visibleRows = rows.filter(r => r.style.display !== 'none');
+    
+    if (sort === 'priority') {
+        const priorityOrder = {'High': 1, 'Medium': 2, 'Low': 3};
+        visibleRows.sort((a, b) => {
+            const aPriority = a.textContent.includes('High') ? 1 : a.textContent.includes('Medium') ? 2 : 3;
+            const bPriority = b.textContent.includes('High') ? 1 : b.textContent.includes('Medium') ? 2 : 3;
+            return aPriority - bPriority;
+        });
+    }
+    
+    visibleRows.forEach(row => tbody.appendChild(row));
+}
+
+// Delete with undo (reuse dashboard logic)
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.delete-activity-btn');
+    if (!btn) return;
+    e.preventDefault();
+    
+    const id = btn.getAttribute('data-activity-id');
+    const desc = btn.getAttribute('data-activity-desc');
+    
+    if (!confirm(`Delete "${desc}"?`)) return;
+    
+    const row = btn.closest('tr');
+    const parent = row.parentElement;
+    let deletedActivity = { id, row, parent };
+    
+    row.remove();
+    
+    if (typeof showToast === 'function') {
+        const wrap = document.getElementById('toast-container');
+        if (wrap) {
+            const d = document.createElement('div');
+            d.className = 'toast toast-info';
+            d.innerHTML = `<span>Deleted "${desc}"</span><button class='ml-2 underline' onclick='undoCompletedDelete()'>Undo</button>`;
+            wrap.appendChild(d);
+            
+            window.undoCompletedDelete = function() {
+                if (deletedActivity) {
+                    deletedActivity.parent.appendChild(deletedActivity.row);
+                    deletedActivity = null;
+                    showToast('Deletion cancelled', 'success', 1500);
+                }
+            };
+            
+            setTimeout(() => {
+                if (deletedActivity && deletedActivity.id === id) {
+                    fetch('/delete/' + id).then(() => {
+                        deletedActivity = null;
+                        showToast('Activity deleted', 'success');
+                    });
+                }
+                d.style.opacity = '0';
+                setTimeout(() => d.remove(), 300);
+            }, 15000);
+        }
+    } else {
+        fetch('/delete/' + id).then(() => window.location.reload());
+    }
+});
+</script>
+{% endblock %}

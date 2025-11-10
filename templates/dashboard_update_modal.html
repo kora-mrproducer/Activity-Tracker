@@ -1,0 +1,35 @@
+<!-- Quick Update Modal -->
+<div id="updateModal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+    <div class="glass rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-semibold text-white">
+                <i class="fas fa-comment-medical text-white mr-2"></i>
+                Add Quick Update
+            </h3>
+            <button onclick="closeUpdateModal()" class="text-secondary hover:text-white">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+        <p id="modalActivityDesc" class="text-secondary mb-4"></p>
+        <form id="quickUpdateForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea id="modalUpdateText" name="update_text" rows="3" required
+                      class="w-full px-4 py-3 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition mb-4"
+                      placeholder="Progress update..."></textarea>
+            <label for="modalBlockingPoints" class="block text-xs font-semibold text-secondary mb-1">Blocking Points (optional snapshot)</label>
+            <textarea id="modalBlockingPoints" name="blocking_points" rows="2"
+                      class="w-full px-3 py-2 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition mb-4"
+                      placeholder="Current blockers or leave blank if unchanged"></textarea>
+            <input type="hidden" name="redirect" value="dashboard">
+            <div class="flex gap-4">
+                <button type="submit" class="flex-1 btn-black font-semibold py-3 px-6 rounded-lg transition">
+                    <i class="fas fa-save mr-2"></i>
+                    Save Update
+                </button>
+                <button type="button" onclick="closeUpdateModal()" class="flex-1 bg-dark-secondary hover:bg-dark-hover border border-dark text-secondary font-semibold py-3 px-6 rounded-lg transition">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

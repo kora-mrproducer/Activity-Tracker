@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+
+{% block title %}Timeline - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-semibold text-white mb-1">Timeline</h2>
+    <p class="text-secondary text-sm">Activity lifespans</p>
+</div>
+
+<!-- Legend -->
+<div class="glass rounded-lg shadow-xl p-4 mb-6">
+    <div class="flex items-center gap-6">
+        <span class="text-sm font-semibold text-white mr-4">Priority:</span>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-red-500 rounded"></div>
+            <span class="text-xs text-secondary">High</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+            <span class="text-xs text-secondary">Medium</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-green-500 rounded"></div>
+            <span class="text-xs text-secondary">Low</span>
+        </div>
+        <span class="text-sm font-semibold text-white ml-8 mr-4">Status:</span>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 border-2 border-white rounded"></div>
+            <span class="text-xs text-secondary">Ongoing</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 bg-white bg-opacity-50 rounded"></div>
+            <span class="text-xs text-secondary">Closed</span>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline Container -->
+<div class="glass rounded-lg shadow-xl p-6">
+    <div class="timeline-container">
+        <!-- Date Scale -->
+        <div class="flex justify-between mb-4 pb-2 border-b border-dark">
+            {% for month in timeline_data.months %}
+            <div class="text-xs text-secondary">{{ month }}</div>
+            {% endfor %}
+        </div>
+        
+        <!-- Activity Bars -->
+        <div class="space-y-3">
+            {% for activity in timeline_data.activities %}
+            <div class="timeline-row">
+                <div class="flex items-center gap-3 mb-1">
+                    <span class="text-sm text-white flex-shrink-0 w-64 truncate" title="{{ activity.activity_desc }}">
+                        {{ activity.activity_desc }}
+                    </span>
+                    <span class="text-xs text-secondary flex-shrink-0">{{ activity.days_duration }}d</span>
+                </div>
+                <div class="relative h-8 bg-dark-secondary rounded-lg overflow-hidden">
+                    <!-- Activity Bar -->
+                    <div 
+                        class="absolute h-full rounded transition-all hover:opacity-90 cursor-pointer group timeline-bar"
+                        data-start="{{ activity.start_percent }}"
+                        data-width="{{ activity.width_percent }}"
+                        data-color="{{ activity.color }}"
+                        data-ongoing="{{ 1 if activity.status == 'Ongoing' else 0 }}"
+                        data-edit-url="{{ url_for('activities.edit_activity', id=activity.id) }}"
+                        title="{{ activity.activity_desc }} ({{ activity.start_date }} - {{ activity.end_date or 'Ongoing' }})">
+                        <div class="px-2 py-1 text-xs text-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                            {{ activity.status }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if not timeline_data.activities %}
+            <div class="text-center py-12">
+                <i class="fas fa-inbox text-secondary text-6xl mb-4 opacity-50"></i>
+                <p class="text-white">No activities to display</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Options -->
+<div class="glass rounded-lg shadow-xl p-4 mt-6">
+    <form method="GET" action="{{ url_for('analytics.timeline') }}" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label for="filter_status" class="block text-xs font-semibold text-secondary mb-1">Status</label>
+            <select id="filter_status" name="status" class="px-3 py-2 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none text-sm">
+                <option value="all" {% if request.args.get('status', 'all')=='all' %}selected{% endif %}>All</option>
+                <option value="Ongoing" {% if request.args.get('status')=='Ongoing' %}selected{% endif %}>Ongoing Only</option>
+                <option value="Closed" {% if request.args.get('status')=='Closed' %}selected{% endif %}>Closed Only</option>
+            </select>
+        </div>
+        <div>
+            <label for="filter_priority" class="block text-xs font-semibold text-secondary mb-1">Priority</label>
+            <select id="filter_priority" name="priority" class="px-3 py-2 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none text-sm">
+                <option value="">All</option>
+                <option value="High" {% if request.args.get('priority')=='High' %}selected{% endif %}>High</option>
+                <option value="Medium" {% if request.args.get('priority')=='Medium' %}selected{% endif %}>Medium</option>
+                <option value="Low" {% if request.args.get('priority')=='Low' %}selected{% endif %}>Low</option>
+            </select>
+        </div>
+        <div>
+            <label for="filter_range" class="block text-xs font-semibold text-secondary mb-1">Time Range</label>
+            <select id="filter_range" name="range" class="px-3 py-2 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none text-sm">
+                <option value="90" {% if request.args.get('range', '90')=='90' %}selected{% endif %}>Last 3 Months</option>
+                <option value="180" {% if request.args.get('range')=='180' %}selected{% endif %}>Last 6 Months</option>
+                <option value="365" {% if request.args.get('range')=='365' %}selected{% endif %}>Last Year</option>
+                <option value="all" {% if request.args.get('range')=='all' %}selected{% endif %}>All Time</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-black px-4 py-2 rounded-lg text-sm transition">
+            <i class="fas fa-filter mr-1"></i> Apply
+        </button>
+        <a href="{{ url_for('analytics.timeline') }}" class="bg-dark-secondary hover:bg-dark-hover border border-dark text-secondary px-4 py-2 rounded-lg text-sm transition">
+            Reset
+        </a>
+    </form>
+</div>
+
+<style>
+.timeline-row:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+    margin: -0.25rem;
+}
+</style>
+
+<script>
+// Apply styles from data-* attributes to avoid inline style with template expressions
+document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.timeline-bar').forEach(function(el){
+        const start = el.dataset.start;
+        const width = el.dataset.width;
+        const color = el.dataset.color;
+        const ongoing = el.dataset.ongoing === '1';
+        if(start) el.style.left = start + '%';
+        if(width) el.style.width = width + '%';
+        if(color) el.style.backgroundColor = color;
+        if(ongoing) { el.style.border = '2px solid white'; } else { el.style.opacity = '0.7'; }
+        el.addEventListener('click', function(){
+            const url = el.dataset.editUrl;
+            if(url) window.location.href = url;
+        });
+    });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,294 @@
+{% extends "layout.html" %}
+
+{% block title %}Reports - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-white mb-2">📊 Activity Reports</h2>
+            <p class="text-secondary">Generate custom reports for specific date ranges</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ url_for('analytics.analytics') }}" class="btn-black px-4 py-2 rounded-lg text-sm transition">
+                <i class="fas fa-chart-line mr-1"></i> Analytics
+            </a>
+            <a href="{{ url_for('analytics.timeline') }}" class="btn-black px-4 py-2 rounded-lg text-sm transition">
+                <i class="fas fa-stream mr-1"></i> Timeline
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Report Filter Form -->
+<div class="glass rounded-lg shadow-xl p-6 mb-8">
+    <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+        <i class="fas fa-filter text-white mr-2"></i>
+        Report Filters
+    </h3>
+    
+    <form action="{{ url_for('activities.report') }}" method="POST" class="flex flex-col md:flex-row gap-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="flex-1">
+            <label for="start_date" class="block text-sm font-medium text-white mb-2">
+                Start Date
+            </label>
+            <input type="date" id="start_date" name="start_date" required
+                   {% if start_date %}value="{{ start_date.strftime('%Y-%m-%d') }}"{% endif %}
+                   class="w-full px-4 py-2 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition">
+        </div>
+        
+        <div class="flex-1">
+            <label for="end_date" class="block text-sm font-medium text-white mb-2">
+                End Date
+            </label>
+            <input type="date" id="end_date" name="end_date" required
+                   {% if end_date %}value="{{ end_date.strftime('%Y-%m-%d') }}"{% endif %}
+                   class="w-full px-4 py-2 bg-dark-secondary border border-dark rounded-lg text-white focus:outline-none transition">
+        </div>
+        
+        <div class="flex items-end">
+            <button type="submit" class="btn-black px-8 py-2 rounded-lg transition flex items-center">
+                <i class="fas fa-search mr-2"></i>
+                Generate Report
+            </button>
+        </div>
+    </form>
+    
+    <!-- Quick Date Presets -->
+    <div class="mt-4 flex flex-wrap gap-2">
+        <span class="text-xs text-secondary">Quick presets:</span>
+        <button onclick="setDateRange(7)" class="text-xs text-primary hover:underline">Last 7 days</button>
+        <button onclick="setDateRange(30)" class="text-xs text-primary hover:underline">Last 30 days</button>
+        <button onclick="setDateRange(90)" class="text-xs text-primary hover:underline">Last 90 days</button>
+        <button onclick="setThisMonth()" class="text-xs text-primary hover:underline">This month</button>
+        <button onclick="setLastMonth()" class="text-xs text-primary hover:underline">Last month</button>
+    </div>
+</div>
+
+{% if activities %}
+<!-- Report Header -->
+<div class="glass rounded-lg shadow-xl p-6 mb-8 bg-dark-secondary">
+    <div class="flex justify-between items-center">
+        <div>
+            <h3 class="text-2xl font-bold text-white mb-2">Activity Report</h3>
+            <p class="text-secondary">
+                Period: {{ start_date.strftime('%B %d, %Y') }} - {{ end_date.strftime('%B %d, %Y') }}
+            </p>
+        </div>
+        <div class="text-right">
+            <p class="text-4xl font-bold text-white">{{ activities|length }}</p>
+            <p class="text-secondary">Total Activities</p>
+        </div>
+    </div>
+</div>
+
+<!-- Insights Panel -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="glass rounded-lg shadow-xl p-6">
+        <div class="flex items-center justify-between mb-2">
+            <i class="fas fa-check-circle text-green-400 text-2xl"></i>
+            <span class="text-3xl font-bold text-white">{{ activities|selectattr('status', 'equalto', 'Closed')|list|length }}</span>
+        </div>
+        <p class="text-sm text-secondary">Completed</p>
+    </div>
+    
+    <div class="glass rounded-lg shadow-xl p-6">
+        <div class="flex items-center justify-between mb-2">
+            <i class="fas fa-spinner text-yellow-400 text-2xl"></i>
+            <span class="text-3xl font-bold text-white">{{ activities|selectattr('status', 'equalto', 'Ongoing')|list|length }}</span>
+        </div>
+        <p class="text-sm text-secondary">Ongoing</p>
+    </div>
+    
+    <div class="glass rounded-lg shadow-xl p-6">
+        <div class="flex items-center justify-between mb-2">
+            <i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
+            <span class="text-3xl font-bold text-white">{{ activities|selectattr('blocking_points')|select('defined')|select('ne', '')|list|length }}</span>
+        </div>
+        <p class="text-sm text-secondary">With Blockers</p>
+    </div>
+    
+    <div class="glass rounded-lg shadow-xl p-6">
+        <div class="flex items-center justify-between mb-2">
+            <i class="fas fa-fire text-orange-400 text-2xl"></i>
+            <span class="text-3xl font-bold text-white">{{ activities|selectattr('priority', 'equalto', 'High')|list|length }}</span>
+        </div>
+        <p class="text-sm text-secondary">High Priority</p>
+    </div>
+</div>
+
+<!-- Detailed Report Table -->
+<div class="glass rounded-lg shadow-xl overflow-hidden mb-8">
+    <div class="px-6 py-4 bg-dark-secondary border-b border-dark">
+        <h3 class="text-lg font-semibold text-white flex items-center">
+            <i class="fas fa-table text-white mr-2"></i>
+            Detailed Activity List
+        </h3>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-dark-secondary border-b border-dark">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">#</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Activity Description</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Source</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Start Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Priority</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Blocking Points</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-secondary uppercase">Observations</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-dark">
+                {% for activity in activities %}
+                <tr class="hover:bg-dark-secondary transition">
+                    <td class="px-6 py-4 text-sm font-medium text-white">{{ loop.index }}</td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-white font-medium max-w-md">{{ activity.activity_desc }}</div>
+                        {% if activity.tags %}
+                        <div class="mt-1">
+                            {% for tag in activity.tags.split(',')[:2] %}
+                                <span class="inline-flex px-2 py-0.5 text-xs bg-dark-secondary border border-dark text-white rounded mr-1">
+                                    #{{ tag.strip() }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex px-2 py-1 text-xs font-medium bg-dark-secondary border border-dark text-white rounded">
+                            {{ activity.source or 'N/A' }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-secondary">
+                        {{ activity.start_date.strftime('%Y-%m-%d') }}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if activity.status == 'Ongoing' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-yellow-900/30 text-yellow-400 border border-yellow-800/50 rounded-full">
+                                Ongoing
+                            </span>
+                        {% elif activity.status == 'Closed' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-green-900/30 text-green-400 border border-green-800/50 rounded-full">
+                                Closed
+                            </span>
+                        {% else %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-dark-secondary border border-dark text-white rounded-full">
+                                {{ activity.status }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if activity.priority == 'High' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-red-900/30 text-red-400 border border-red-800/50 rounded">
+                                High
+                            </span>
+                        {% elif activity.priority == 'Medium' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-yellow-900/30 text-yellow-400 border border-yellow-800/50 rounded">
+                                Medium
+                            </span>
+                        {% else %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-900/30 text-blue-400 border border-blue-800/50 rounded">
+                                Low
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-secondary max-w-xs">
+                        {{ activity.blocking_points or '-' }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-secondary max-w-xs">
+                        {{ activity.observations or '-' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="flex flex-col md:flex-row gap-4 justify-center">
+    <button onclick="window.print()" class="btn-black px-6 py-3 rounded-lg inline-flex items-center transition">
+        <i class="fas fa-print mr-2"></i>
+        Print Report
+    </button>
+    <form action="{{ url_for('activities.report_pdf') }}" method="POST" class="inline-flex">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}">
+        <input type="hidden" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
+        <button type="submit" class="btn-black px-6 py-3 rounded-lg inline-flex items-center transition">
+            <i class="fas fa-file-pdf mr-2 text-red-400"></i>
+            Download PDF
+        </button>
+    </form>
+</div>
+
+{% elif start_date and end_date %}
+<div class="glass rounded-lg shadow-xl p-12 text-center">
+    <i class="fas fa-search text-secondary text-6xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-white mb-2">No activities found</h3>
+    <p class="text-secondary">No activities were found for the selected date range</p>
+</div>
+{% else %}
+<div class="glass rounded-lg shadow-xl p-12 text-center">
+    <i class="fas fa-calendar-alt text-secondary text-6xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-white mb-2">Select a Date Range</h3>
+    <p class="text-secondary">Choose start and end dates above to generate your report</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set default date range (last 30 days) if not already set
+if (!document.getElementById('start_date').value) {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    document.getElementById('end_date').valueAsDate = today;
+    document.getElementById('start_date').valueAsDate = thirtyDaysAgo;
+}
+
+// Quick date range functions
+function setDateRange(days) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - days);
+    
+    document.getElementById('end_date').valueAsDate = end;
+    document.getElementById('start_date').valueAsDate = start;
+}
+
+function setThisMonth() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    document.getElementById('start_date').valueAsDate = start;
+    document.getElementById('end_date').valueAsDate = end;
+}
+
+function setLastMonth() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    document.getElementById('start_date').valueAsDate = start;
+    document.getElementById('end_date').valueAsDate = end;
+}
+
+// Print styles
+const style = document.createElement('style');
+style.textContent = `
+    @media print {
+        aside, nav, button { display: none !important; }
+        main { margin: 0 !important; padding: 20px !important; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

@@ -1,0 +1,248 @@
+{% extends "layout.html" %}
+
+{% block title %}All Activities - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-semibold text-white mb-2">All Activities</h1>
+    <p class="text-secondary text-sm">Complete view of all activities with full details</p>
+</div>
+
+<!-- Filters -->
+<div class="glass p-4 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <input 
+            type="text" 
+            name="search" 
+            placeholder="Search activities..." 
+            value="{{ request.args.get('search', '') }}"
+            class="px-3 py-2 bg-dark-secondary border border-dark text-white rounded-lg text-sm focus:outline-none focus:border-white/30"
+        >
+        
+        <select name="priority" class="px-3 py-2 bg-dark-secondary border border-dark text-white rounded-lg text-sm focus:outline-none focus:border-white/30">
+            <option value="">All Priorities</option>
+            <option value="High" {% if request.args.get('priority') == 'High' %}selected{% endif %}>High</option>
+            <option value="Medium" {% if request.args.get('priority') == 'Medium' %}selected{% endif %}>Medium</option>
+            <option value="Low" {% if request.args.get('priority') == 'Low' %}selected{% endif %}>Low</option>
+        </select>
+        
+        <select name="status" class="px-3 py-2 bg-dark-secondary border border-dark text-white rounded-lg text-sm focus:outline-none focus:border-white/30">
+            <option value="">All Statuses</option>
+            <option value="Ongoing" {% if request.args.get('status') == 'Ongoing' %}selected{% endif %}>Ongoing</option>
+            <option value="Hold" {% if request.args.get('status') == 'Hold' %}selected{% endif %}>Hold</option>
+            <option value="Closed" {% if request.args.get('status') == 'Closed' %}selected{% endif %}>Closed</option>
+        </select>
+        
+        <div class="flex gap-2">
+            <button type="submit" class="flex-1 px-4 py-2 bg-white text-black rounded-lg hover:bg-white/90 transition text-sm font-medium">
+                <i class="fas fa-filter mr-1"></i> Filter
+            </button>
+            <a href="{{ url_for('activities.all_activities') }}" class="px-4 py-2 bg-dark-secondary text-white rounded-lg hover:bg-dark-hover transition text-sm">
+                <i class="fas fa-times"></i>
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Activities Count -->
+<div class="mb-4 text-sm text-secondary">
+    Showing {{ activities|length }} activit{{ 'y' if activities|length == 1 else 'ies' }}
+</div>
+
+<!-- Activities List -->
+<div style="display: flex; flex-direction: column; gap: 15px;">
+    {% for activity in activities %}
+    <div class="glass p-5 hover:border-white/20 transition" style="margin-bottom: 15px;">
+        <!-- Header (Always Visible) -->
+        <div class="flex items-start justify-between mb-2">
+            <div class="flex-1 cursor-pointer" onclick="toggleActivityCard({{ activity.id }})">
+                <div class="flex items-center gap-3">
+                    <!-- Expand/Collapse Chevron -->
+                    <i class="fas fa-chevron-right transform transition-transform text-secondary" id="card-chevron-{{ activity.id }}"></i>
+                    
+                    <!-- Priority Indicator -->
+                    {% if activity.priority == 'High' %}
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                    {% elif activity.priority == 'Medium' %}
+                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    {% else %}
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                    {% endif %}
+                    
+                    <h3 class="text-lg font-medium text-white">{{ activity.activity_desc }}</h3>
+                    
+                    <!-- Status Badge -->
+                    {% if activity.status == 'Ongoing' %}
+                    <span class="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">{{ activity.status }}</span>
+                    {% elif activity.status == 'Hold' %}
+                    <span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">{{ activity.status }}</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 bg-gray-500/20 text-gray-400 rounded text-xs">{{ activity.status }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <a href="{{ url_for('activities.activity_detail', id=activity.id) }}" 
+                   class="px-3 py-1.5 bg-primary/10 text-primary border border-primary/30 rounded hover:bg-primary/20 transition text-xs">
+                    <i class="fas fa-eye mr-1"></i> View
+                </a>
+                <a href="{{ url_for('activities.edit_activity', id=activity.id) }}" 
+                   class="px-3 py-1.5 bg-dark-secondary text-white rounded hover:bg-dark-hover transition text-xs">
+                    <i class="fas fa-edit mr-1"></i> Edit
+                </a>
+            </div>
+        </div>
+        
+        <!-- Collapsible Details Section (Hidden by Default) -->
+        <div id="card-details-{{ activity.id }}" class="hidden mt-4"  style="animation: slideDown 0.3s ease;">
+        
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
+            <div>
+                <span class="text-secondary">Source:</span>
+                <span class="text-white ml-2">{{ activity.source or 'N/A' }}</span>
+            </div>
+            <div>
+                <span class="text-secondary">Priority:</span>
+                <span class="text-white ml-2">{{ activity.priority }}</span>
+            </div>
+            <div>
+                <span class="text-secondary">Started:</span>
+                <span class="text-white ml-2">{{ activity.start_date.strftime('%b %d, %Y') if activity.start_date else 'N/A' }}</span>
+            </div>
+            {% if activity.end_date %}
+            <div>
+                <span class="text-secondary">End Date:</span>
+                <span class="text-white ml-2">{{ activity.end_date.strftime('%b %d, %Y') }}</span>
+            </div>
+            {% endif %}
+            {% if activity.tags %}
+            <div class="md:col-span-2">
+                <span class="text-secondary">Tags:</span>
+                <div class="inline-flex flex-wrap gap-1 ml-2">
+                    {% for tag in activity.tags.split(',') %}
+                    <span class="px-2 py-0.5 bg-dark-secondary text-white rounded text-xs">{{ tag.strip() }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Blocking Points -->
+        {% if activity.blocking_points %}
+        <div class="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <div class="flex items-start gap-2">
+                <i class="fas fa-exclamation-triangle text-red-400 mt-0.5"></i>
+                <div class="flex-1">
+                    <div class="text-xs text-red-400 font-medium mb-1">Blocking Points</div>
+                    <div class="text-sm text-white">{{ activity.blocking_points }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Observations -->
+        {% if activity.observations %}
+        <div class="mb-4">
+            <div class="text-xs text-secondary font-medium mb-2">Observations</div>
+            <div class="text-sm text-white whitespace-pre-wrap">{{ activity.observations }}</div>
+        </div>
+        {% endif %}
+        
+        <!-- Updates Timeline -->
+        {% if activity_updates[activity.id] %}
+        <div class="mt-4 pt-4 border-t border-dark/50">
+            <button 
+                onclick="toggleUpdates({{ activity.id }})" 
+                class="text-xs text-secondary hover:text-white transition flex items-center gap-2 mb-3"
+            >
+                <i class="fas fa-chevron-right transform transition-transform" id="chevron-{{ activity.id }}"></i>
+                <span>{{ activity_updates[activity.id]|length }} Update{{ 's' if activity_updates[activity.id]|length != 1 else '' }}</span>
+            </button>
+            
+            <div id="updates-{{ activity.id }}" class="hidden space-y-3">
+                {% for update in activity_updates[activity.id] %}
+                <div class="pl-4 border-l-2 border-dark">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="text-sm text-white mb-1">{{ update.text }}</div>
+                            <div class="text-xs text-secondary">
+                                {{ update.created_at.strftime('%b %d, %Y at %I:%M %p') if update.created_at else 'N/A' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% if update.bp_snapshot %}
+                    <div class="mt-2 text-xs text-secondary">
+                        <i class="fas fa-exclamation-circle mr-1"></i>
+                        Blockers: {{ update.bp_snapshot }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="mt-4 pt-4 border-t border-dark/50 text-xs text-secondary italic">
+            No updates yet
+        </div>
+        {% endif %}
+        
+        </div><!-- End Collapsible Details -->
+    </div>
+    {% else %}
+    <div class="glass p-8 text-center">
+        <i class="fas fa-inbox text-4xl text-secondary mb-3"></i>
+        <p class="text-secondary">No activities found</p>
+        {% if request.args %}
+        <a href="{{ url_for('activities.all_activities') }}" class="text-white text-sm hover:underline mt-2 inline-block">
+            Clear filters
+        </a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function toggleActivityCard(activityId) {
+    const detailsDiv = document.getElementById(`card-details-${activityId}`);
+    const chevron = document.getElementById(`card-chevron-${activityId}`);
+    
+    if (detailsDiv.classList.contains('hidden')) {
+        detailsDiv.classList.remove('hidden');
+        chevron.style.transform = 'rotate(90deg)';
+    } else {
+        detailsDiv.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+function toggleUpdates(activityId) {
+    const updatesDiv = document.getElementById(`updates-${activityId}`);
+    const chevron = document.getElementById(`chevron-${activityId}`);
+    
+    if (updatesDiv.classList.contains('hidden')) {
+        updatesDiv.classList.remove('hidden');
+        chevron.style.transform = 'rotate(90deg)';
+    } else {
+        updatesDiv.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+</script>
+
+<style>
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+    }
+    to {
+        opacity: 1;
+        max-height: 2000px;
+    }
+}
+</style>
+{% endblock %}

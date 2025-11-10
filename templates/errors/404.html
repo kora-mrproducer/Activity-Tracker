@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+
+{% block title %}Page Not Found - Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[calc(100vh-200px)]">
+    <div class="text-center max-w-2xl mx-auto px-8">
+        <!-- Error Icon -->
+        <div class="mb-8">
+            <i class="fas fa-map-signs text-9xl" style="color: var(--md-sys-color-on-surface-variant);"></i>
+        </div>
+        
+        <!-- Error Code -->
+        <h1 class="text-6xl font-bold mb-4" style="color: var(--md-sys-color-on-surface);">404</h1>
+        
+        <!-- Error Message -->
+        <h2 class="text-2xl font-semibold mb-4" style="color: var(--md-sys-color-on-surface);">
+            Page Not Found
+        </h2>
+        
+        <p class="text-lg mb-8" style="color: var(--md-sys-color-on-surface-variant);">
+            The page you're looking for doesn't exist or has been moved.
+        </p>
+        
+        <!-- Action Buttons -->
+        <div class="flex gap-4 justify-center flex-wrap">
+            <a href="{{ url_for('activities.dashboard') }}" 
+               class="btn-black inline-flex items-center gap-2 px-6 py-3 rounded-lg transition">
+                <i class="fas fa-home"></i>
+                Go to Dashboard
+            </a>
+            
+            <a href="{{ url_for('activities.all_activities') }}" 
+               class="inline-flex items-center gap-2 px-6 py-3 rounded-lg transition"
+               style="background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface);">
+                <i class="fas fa-list"></i>
+                View All Activities
+            </a>
+            
+            <button onclick="history.back()" 
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-lg transition"
+                    style="background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface);">
+                <i class="fas fa-arrow-left"></i>
+                Go Back
+            </button>
+        </div>
+        
+        <!-- Helpful Links -->
+        <div class="mt-12 pt-8 border-t" style="border-color: var(--md-sys-color-outline);">
+            <p class="text-sm mb-4" style="color: var(--md-sys-color-on-surface-variant);">
+                <i class="fas fa-lightbulb mr-2"></i>Quick links:
+            </p>
+            <div class="flex gap-4 justify-center flex-wrap text-sm">
+                <a href="{{ url_for('activities.add_activity') }}" class="hover:underline" style="color: var(--md-sys-color-primary);">
+                    Add Activity
+                </a>
+                <a href="{{ url_for('analytics.analytics') }}" class="hover:underline" style="color: var(--md-sys-color-primary);">
+                    Analytics
+                </a>
+                <a href="{{ url_for('analytics.timeline') }}" class="hover:underline" style="color: var(--md-sys-color-primary);">
+                    Timeline
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

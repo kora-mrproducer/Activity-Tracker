@@ -1,0 +1,26 @@
+[flake8]
+# Practical baseline: allow longer lines; ignore common whitespace/style until codebase is cleaned up.
+max-line-length = 120
+extend-ignore =
+    E203,
+    W503,
+    W293,
+    W291,
+    E231,
+    E128,
+    E711,
+    E302,
+    E305,
+    E306,
+    E501
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    migrations,
+    static,
+    logs,
+    backups
+# Only flag likely-real issues in tests
+per-file-ignores =
+    tests/*: F401,F811
