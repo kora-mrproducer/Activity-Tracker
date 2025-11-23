@@ -25,9 +25,17 @@ if __name__ == '__main__':
         db.create_all()
         backup_database(app, db)
 
-    port = _find_port(5000, max_tries=5)
-    print(f"Starting Activity Tracker on http://127.0.0.1:{port}")
+    # Allow overriding host/port via environment (useful for Docker)
+    host = os.getenv('HOST', '127.0.0.1')
+    env_port = os.getenv('PORT', '').strip()
+    if env_port.isdigit():
+        port = int(env_port)
+    else:
+        port = _find_port(5000, max_tries=5)
+
+    display_host = 'localhost' if host in ('0.0.0.0', '::') else host
+    print(f"Starting Activity Tracker on http://{display_host}:{port}")
     print("Press Ctrl+C to stop the server")
 
     from waitress import serve
-    serve(app, host='127.0.0.1', port=port, threads=4)
+    serve(app, host=host, port=port, threads=4)

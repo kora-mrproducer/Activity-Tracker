@@ -1,6 +1,6 @@
 # Activity Tracker
 
-A standalone, offline desktop application for tracking activities, tasks, and projects with analytics, timeline views, and comprehensive reporting.
+A standalone desktop application for tracking activities, tasks, and projects with analytics, timeline views, and comprehensive reporting.
 
 ## Features
 
@@ -9,15 +9,14 @@ A standalone, offline desktop application for tracking activities, tasks, and pr
 - **Timeline** - Visual Gantt-style view of activity lifespans
 - **Reports** - Custom date-range reports with export to CSV
 - **Themes** - 5 built-in themes (Grayscale, Ocean, Forest, Sunset, Cyberpunk)
-- **Offline** - Fully standalone, no internet connection required (all assets local)
-- **Automatic Backups** - Startup backups with retention (default keep last 7)
-- **Desktop Window** - Native window shell via pywebview (optional), no browser chrome
+- **Offline** - Fully standalone, no internet connection required
+- **Automatic Backups** - Daily database backups (keeps last 7)
 
 ## Requirements
 
-- Python 3.10 or higher (tested on 3.14)
-- Windows 10/11 (tested); macOS/Linux should work
-- Optional for a native desktop window (no browser): `pywebview`
+- Python 3.8 or higher
+- Windows 10/11 (tested), macOS/Linux (should work)
+- Google Chrome, Firefox, or Edge browser
 
 ## Installation
 
@@ -39,15 +38,16 @@ A standalone, offline desktop application for tracking activities, tasks, and pr
    - macOS/Linux: `source venv/bin/activate`
 
 3. **Install dependencies:**
-   ```powershell
-   venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```bash
+   pip install -r requirements.txt
    ```
 
 4. **Run the application:**
-   ```powershell
-   venv\Scripts\python.exe run.py
+   ```bash
+   python run.py
    ```
-   The server uses a production WSGI (Waitress) and binds to 127.0.0.1. If port 5000 is busy, it will pick the next available.
+
+5. **Open your browser** to `http://127.0.0.1:5000`
 
 ## Usage
 
@@ -64,10 +64,9 @@ python run.py
 ```
 
 **Desktop Mode (standalone window):**
-```powershell
-venv\Scripts\python.exe desktop_app.py
+```bash
+python desktop_app.py
 ```
-This will open a native window using `pywebview` if installed; otherwise it will open your default browser. The backend starts automatically and uses a single-instance lock to prevent multiple copies.
 
 ### First-Time Setup
 
@@ -149,8 +148,8 @@ flask backup-now
 
 ```
 Activity Tracker/
-├── run.py                  # CLI entry point (Waitress, dynamic port)
-├── desktop_app.py          # Desktop launcher (single-instance, pywebview window)
+├── run.py                  # Entry point (app factory)
+├── desktop_app.py          # Standalone desktop launcher
 ├── start_tracker.bat       # Windows quick-start script
 ├── setup.bat              # Automated environment setup
 ├── requirements.txt       # Python dependencies
@@ -190,42 +189,104 @@ Activity Tracker/
 ## Troubleshooting
 
 **Application won't start:**
-- Ensure a modern Python is installed (3.10+ recommended)
+- Ensure Python 3.8+ is installed: `python --version`
 - Verify virtual environment is activated
-- Install dependencies: `venv\Scripts\python.exe -m pip install -r requirements.txt`
+- Check dependencies: `pip install -r requirements.txt`
 
 **Database errors:**
 - Delete `instance/tracker.db` to reset (will lose data)
 - Restore from backup: copy from `backups/` folder
 
 **Port already in use:**
-- No action needed: the app will try the next free port automatically (5000 → 5001 → ...)
+- Edit `app.py` and change `port=5000` to another port
+- Or stop other Flask applications running
 
 **Styles not loading:**
+- Clear browser cache
 - Verify `static/` folder contains all assets
-- In desktop mode, styles are loaded locally without a network connection
+- Check browser console for errors (F12)
 
 **PDF export not working:**
 - The app uses xhtml2pdf for PDF generation (Windows-friendly, no native libraries required).
 - Ensure dependencies are installed: `pip install -r requirements.txt` (includes `xhtml2pdf`).
 - If the PDF looks unstyled, verify `static/css/tailwind-built.css` exists. xhtml2pdf supports a subset of CSS; complex Tailwind utilities may be simplified.
 
+---
+
+## Install as Android App (PWA)
+
+Your Activity Tracker is now a **Progressive Web App** that can be installed on Android phones for a native app experience—no Play Store needed!
+
+### Features
+- ✅ Install to home screen (looks/launches like a native app)
+- ✅ Offline support (cached assets work without internet)
+- ✅ Fast load times
+- ✅ Full-screen standalone mode
+- ✅ Material Design 3 optimized UI
+
+### How to Install on Android
+
+1. **Host the app** (choose one):
+   - **Local network:** Run on your PC and access from phone on same WiFi:
+     ```powershell
+     # Set host to bind to all interfaces
+     $env:HOST="0.0.0.0"; python run.py
+     ```
+     Then visit `http://YOUR_PC_IP:5000` from phone (find PC IP with `ipconfig`)
+   
+   - **Cloud hosting:** Deploy to a free service like:
+     - [Render](https://render.com) - Free tier for web apps
+     - [Railway](https://railway.app) - Easy deployment with GitHub
+     - [Fly.io](https://fly.io) - Global edge deployment
+     - Use the included `Dockerfile` for easy deployment
+
+2. **Install on phone:**
+   - Open the app URL in **Chrome** on Android
+   - Tap the **⋮** menu (top right)
+   - Select **"Install app"** or **"Add to Home Screen"**
+   - Confirm installation
+   - App icon appears on home screen!
+
+3. **Launch the installed app:**
+   - Tap the Activity Tracker icon
+   - Runs in full-screen standalone mode
+   - Works offline for cached pages
+
+### Testing PWA Locally
+
+Chrome DevTools can simulate PWA installation:
+1. Open app in Chrome
+2. Press `F12` → `Application` tab
+3. Check `Service Workers` (should show registered)
+4. Check `Manifest` (validates your `manifest.json`)
+5. Use `Lighthouse` audit for PWA score
+
+### PWA Requirements
+- ✅ HTTPS (required for service worker in production)
+- ✅ `manifest.json` with icons and metadata
+- ✅ Service worker (`sw.js`) for offline caching
+- ✅ Installable (passes Chrome's install criteria)
+
+**Note:** For local testing, `http://localhost` and `http://127.0.0.1` bypass HTTPS requirement.
+
+---
+
 ## Development
 
-**Run locally in development:**
-```powershell
-venv\Scripts\python.exe run.py
+**Enable debug mode:**
+```python
+# In app.py, last line:
+app.run(debug=True)
 ```
-The code uses an application factory (`app.create_app`) and Waitress server. For tests, an in-memory SQLite DB is used.
 
 **Database migrations:**
-- Use Flask-Migrate via CLI (upgrade on startup is not automatic)
-- To reset: delete `instance/tracker.db` (this will lose data) and restart
+- Schema changes: modify models in `app/models.py`
+- Delete and recreate: `rm instance/tracker.db; python run.py`
 
 **Add new features:**
-1. Create routes under `app/routes/`
-2. Add templates in `templates/`
-3. Update navigation in `templates/layout.html`
+1. Create route in `app.py`
+2. Add template in `templates/`
+3. Update navigation in `layout.html`
 
 ## Security Notes
 
@@ -239,7 +300,7 @@ The code uses an application factory (`app.create_app`) and Waitress server. For
 - **Tailwind CSS** - Utility-first CSS framework
 - **Font Awesome** - Icon library
 - **Chart.js** - Charting library
-- **Outfit (Local fonts bundled)** - Typography
+- **Google Fonts (Outfit)** - Typography
 
 ## License
 
@@ -248,13 +309,6 @@ This project is for personal use. All third-party libraries retain their origina
 ## Version
 
 **1.0.0** - November 2025
-
-## Desktop Mode Details
-
-- Single-instance: a small lock file in `instance/` prevents multiple copies.
-- Dynamic port: starts on 5000; if busy, tries the next few ports.
-- Native window: if `pywebview` is installed, a desktop window opens with no browser chrome. If not, your default browser opens.
-- Health: visit `/health` for basic diagnostics.
 
 ## Support
 

@@ -353,7 +353,7 @@ class TestReportRoute:
         assert response.status_code == 200
 
     def test_report_pdf(self, client, sample_closed_activity):
-        """Test PDF generation route for report (accepts WeasyPrint or fallback)."""
+        """Test PDF generation route for report (xhtml2pdf implementation)."""
         from datetime import datetime, timedelta
         start = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         end = datetime.now().strftime('%Y-%m-%d')
