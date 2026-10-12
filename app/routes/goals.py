@@ -1,7 +1,7 @@
 """
 Blueprint for goals management routes.
 """
-from flask import Blueprint, request, redirect, url_for, flash, abort
+from flask import current_app, Blueprint, request, redirect, url_for, flash, abort
 from datetime import date, timedelta
 from app import db
 from app.models import Goal
@@ -33,12 +33,13 @@ def add_goal():
         flash('Goal added successfully!', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error adding goal: {str(e)}', 'error')
+        current_app.logger.exception('Error adding goal')
+        flash('Error adding goal. Please try again.', 'error')
     
     return redirect(url_for('activities.dashboard'))
 
 
-@goals_bp.route('/toggle/<int:id>')
+@goals_bp.route('/toggle/<int:id>', methods=['POST'])
 def toggle_goal(id):
     """Toggle goal completion status"""
     goal = db.session.get(Goal, id)
@@ -49,6 +50,7 @@ def toggle_goal(id):
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        flash(f'Error updating goal: {str(e)}', 'error')
+        current_app.logger.exception('Error updating goal')
+        flash('Error updating goal. Please try again.', 'error')
     
     return redirect(url_for('activities.dashboard'))

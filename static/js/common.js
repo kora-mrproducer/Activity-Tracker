@@ -1,3 +1,19 @@
+// Encode user data before inserting it into HTML templates.
+window.escapeHtml = function(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
+};
+window.mutationHeaders = function() {
+    return {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''};
+};
+window.deleteActivity = async function(id, desc) {
+    if (!confirm(`Delete "${desc}"?`)) return;
+    try {
+        const response = await fetch('/delete/' + Number(id), {method: 'POST', headers: mutationHeaders()});
+        if (!response.ok) throw new Error('Deletion failed');
+        window.location.reload();
+    } catch (error) { showToast(error.message, 'error'); }
+};
+
 // Common JavaScript - Activity Tracker
 // Shared utilities and global functions
 
@@ -7,48 +23,48 @@
     const LS_KEY = 'tracker.fontSize';
     const root = document.documentElement;
     const minPx = 9, maxPx = 18; // allow some range
-    
-    function apply(px){ 
-        root.style.setProperty('--base-font-size', px + 'px'); 
-        const v = document.getElementById('fontValue'); 
-        if(v) v.textContent = px + 'px'; 
+
+    function apply(px){
+        root.style.setProperty('--base-font-size', px + 'px');
+        const v = document.getElementById('fontValue');
+        if(v) v.textContent = px + 'px';
     }
-    
-    function load(){ 
-        const saved = parseInt(localStorage.getItem(LS_KEY), 10); 
-        if(saved && saved >= minPx && saved <= maxPx){ 
+
+    function load(){
+        const saved = parseInt(localStorage.getItem(LS_KEY), 10);
+        if(saved && saved >= minPx && saved <= maxPx){
             apply(saved);
-        } else { 
-            apply(11); 
-        } 
+        } else {
+            apply(11);
+        }
     }
-    
-    function save(px){ 
-        localStorage.setItem(LS_KEY, px); 
+
+    function save(px){
+        localStorage.setItem(LS_KEY, px);
     }
-    
-    function adjust(delta){ 
-        const cur = parseInt(getComputedStyle(root).getPropertyValue('--base-font-size')); 
-        const next = Math.min(maxPx, Math.max(minPx, cur + delta)); 
-        apply(next); 
-        save(next); 
-        showToast('Font size: ' + next + 'px', 'info', 1200); 
+
+    function adjust(delta){
+        const cur = parseInt(getComputedStyle(root).getPropertyValue('--base-font-size'));
+        const next = Math.min(maxPx, Math.max(minPx, cur + delta));
+        apply(next);
+        save(next);
+        showToast('Font size: ' + next + 'px', 'info', 1200);
     }
-    
-    window.resetFont = function(){ 
-        apply(11); 
-        save(11); 
-        showToast('Font size reset', 'info', 1200); 
+
+    window.resetFont = function(){
+        apply(11);
+        save(11);
+        showToast('Font size reset', 'info', 1200);
     };
-    
-    window.incFont = function(){ 
-        adjust(1); 
+
+    window.incFont = function(){
+        adjust(1);
     };
-    
-    window.decFont = function(){ 
-        adjust(-1); 
+
+    window.decFont = function(){
+        adjust(-1);
     };
-    
+
     document.addEventListener('DOMContentLoaded', ()=>{
         // ===== Theme (light/dark) =====
         const THEME_KEY = 'tracker.theme';
@@ -87,7 +103,7 @@
         if(dec) dec.addEventListener('click', decFont);
         if(inc) inc.addEventListener('click', incFont);
         if(rst) rst.addEventListener('click', resetFont);
-        
+
         // Settings panel toggle
         const settingsToggle = document.getElementById('settingsToggle');
         const settingsPanel = document.getElementById('settingsPanel');
@@ -96,13 +112,13 @@
             settingsToggle.addEventListener('click', function(){
                 settingsPanel.classList.toggle('hidden');
                 if(settingsChevron) {
-                    settingsChevron.style.transform = settingsPanel.classList.contains('hidden') 
-                        ? 'rotate(0deg)' 
+                    settingsChevron.style.transform = settingsPanel.classList.contains('hidden')
+                        ? 'rotate(0deg)'
                         : 'rotate(180deg)';
                 }
             });
         }
-        
+
         // Density toggle
         const densitySelect = document.getElementById('densitySelect');
         const savedDensity = localStorage.getItem('tracker.density') || 'comfortable';
@@ -116,10 +132,10 @@
                 if(typeof showToast === 'function') showToast('Density: ' + val, 'info', 1200);
             });
         }
-        
+
         // Column visibility toggle
         const colToggles = document.querySelectorAll('.col-toggle');
-        const savedCols = JSON.parse(localStorage.getItem('tracker.columns') || 
+        const savedCols = JSON.parse(localStorage.getItem('tracker.columns') ||
             '{"source":true,"start_date":true,"blocking_points":true}');
         colToggles.forEach(function(toggle){
             const col = toggle.getAttribute('data-col');
@@ -131,12 +147,12 @@
                 applyColumnVisibility(col, this.checked);
             });
         });
-        
+
         function applyColumnVisibility(col, visible){
             const cls = 'col-' + col;
             const els = document.querySelectorAll('.' + cls);
-            els.forEach(function(el){ 
-                el.style.display = visible ? '' : 'none'; 
+            els.forEach(function(el){
+                el.style.display = visible ? '' : 'none';
             });
         }
     });
@@ -145,33 +161,33 @@
 // ================== Toast System ==================
 
 window.showToast = function(msg, type='info', ttl=2500){
-    const wrap = document.getElementById('toast-container'); 
+    const wrap = document.getElementById('toast-container');
     if(!wrap) return;
-    
+
     wrap.setAttribute('aria-live', 'polite');
     wrap.setAttribute('aria-atomic', 'true');
-    
+
     // Icon based on type
     let icon = 'fa-info-circle';
     if (type === 'success') icon = 'fa-check-circle';
     else if (type === 'error') icon = 'fa-exclamation-circle';
-    
-    const d = document.createElement('div'); 
+
+    const d = document.createElement('div');
     d.className = 'toast toast-' + (type || 'info');
     d.setAttribute('role', 'status');
     d.innerHTML = `
         <i class="fas ${icon}" style="font-size: 18px;"></i>
-        <span style="flex: 1;">${msg}</span>
+        <span style="flex: 1;">${escapeHtml(msg)}</span>
         <button onclick="this.parentElement.classList.add('toast-removing'); setTimeout(() => this.parentElement.remove(), 300);" aria-label="Dismiss">
             <i class='fas fa-times' style="font-size: 12px;"></i>
         </button>
     `;
-    
+
     wrap.appendChild(d);
-    
-    setTimeout(()=> { 
+
+    setTimeout(()=> {
         d.classList.add('toast-removing');
-        setTimeout(() => d.remove(), 300); 
+        setTimeout(() => d.remove(), 300);
     }, ttl);
 };
 
@@ -191,22 +207,22 @@ document.addEventListener('DOMContentLoaded', function(){
 
 document.addEventListener('keydown', function(e){
     // Show help on ?
-    if(e.key === '?' && !e.ctrlKey && !e.shiftKey && 
+    if(e.key === '?' && !e.ctrlKey && !e.shiftKey &&
        !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)){
         e.preventDefault();
         const helpOverlay = document.getElementById('helpOverlay');
         if(helpOverlay) helpOverlay.style.display = 'flex';
         return;
     }
-    
+
     // Open search on /
-    if(e.key === '/' && !e.ctrlKey && !e.shiftKey && 
+    if(e.key === '/' && !e.ctrlKey && !e.shiftKey &&
        !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)){
         e.preventDefault();
         openSearch();
         return;
     }
-    
+
     // Close help/modals on Escape
     if(e.key === 'Escape'){
         const help = document.getElementById('helpOverlay');
@@ -255,13 +271,13 @@ function closeSearch() {
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     if (!searchInput) return;
-    
+
     searchInput.addEventListener('input', function(e) {
         const query = e.target.value.trim();
-        
+
         // Clear previous timeout
         if (searchTimeout) clearTimeout(searchTimeout);
-        
+
         if (query.length < 2) {
             document.getElementById('searchResults').innerHTML = `
                 <div class="text-center py-8 text-secondary">
@@ -271,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             return;
         }
-        
+
         // Show loading
         document.getElementById('searchResults').innerHTML = `
             <div class="text-center py-8 text-secondary">
@@ -279,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p>Searching...</p>
             </div>
         `;
-        
+
         // Debounce search (wait 300ms after user stops typing)
         searchTimeout = setTimeout(() => {
             fetch('/search?q=' + encodeURIComponent(query))
@@ -298,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         }, 300);
     });
-    
+
     // Navigate results with arrow keys
     searchInput.addEventListener('keydown', function(e) {
         if (e.key === 'ArrowDown') {
@@ -320,37 +336,37 @@ function displaySearchResults(results) {
         `;
         return;
     }
-    
+
     const priorityColors = {
         'High': 'var(--md-sys-color-error)',
         'Medium': '#f59e0b',
         'Low': '#10b981'
     };
-    
+
     const statusBadges = {
         'Ongoing': '<span class="px-2 py-1 rounded text-xs" style="background: #3b82f6; color: white;">Ongoing</span>',
         'Closed': '<span class="px-2 py-1 rounded text-xs" style="background: #10b981; color: white;">Closed</span>',
         'NA': '<span class="px-2 py-1 rounded text-xs" style="background: #6b7280; color: white;">N/A</span>'
     };
-    
+
     container.innerHTML = results.map((r, index) => `
-        <a href="/activity/${r.id}" 
+        <a href="/activity/${Number(r.id)}"
            class="search-result-item block p-4 rounded-lg hover:bg-opacity-80 transition focus:outline-none focus:ring-2"
            style="background: var(--md-sys-color-surface-container); border-left: 4px solid ${priorityColors[r.priority] || '#6b7280'};"
            tabindex="0"
-           onkeydown="if(event.key==='ArrowDown'&&event.target.nextElementSibling) {event.preventDefault(); event.target.nextElementSibling.focus();} else if(event.key==='ArrowUp'&&event.target.previousElementSibling) {event.preventDefault(); event.target.previousElementSibling.focus();} else if(event.key==='Enter') {window.location.href='/activity/${r.id}';}">
+           onkeydown="if(event.key==='ArrowDown'&&event.target.nextElementSibling) {event.preventDefault(); event.target.nextElementSibling.focus();} else if(event.key==='ArrowUp'&&event.target.previousElementSibling) {event.preventDefault(); event.target.previousElementSibling.focus();} else if(event.key==='Enter') {window.location.href='/activity/${Number(r.id)}';}">
             <div class="flex items-start gap-3">
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="font-semibold" style="color: var(--md-sys-color-on-surface);">${r.desc}</span>
+                        <span class="font-semibold" style="color: var(--md-sys-color-on-surface);">${escapeHtml(r.desc)}</span>
                     </div>
                     <div class="flex items-center gap-2 text-sm flex-wrap">
                         ${statusBadges[r.status] || ''}
                         <span class="px-2 py-1 rounded text-xs" style="background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface-variant);">
-                            ${r.priority}
+                            ${escapeHtml(r.priority)}
                         </span>
-                        ${r.source ? `<span style="color: var(--md-sys-color-on-surface-variant);">${r.source}</span>` : ''}
-                        ${r.start_date ? `<span style="color: var(--md-sys-color-on-surface-variant);"><i class="fas fa-calendar-alt mr-1"></i>${r.start_date}</span>` : ''}
+                        ${r.source ? `<span style="color: var(--md-sys-color-on-surface-variant);">${escapeHtml(r.source)}</span>` : ''}
+                        ${r.start_date ? `<span style="color: var(--md-sys-color-on-surface-variant);"><i class="fas fa-calendar-alt mr-1"></i>${escapeHtml(r.start_date)}</span>` : ''}
                     </div>
                 </div>
                 <i class="fas fa-arrow-right" style="color: var(--md-sys-color-on-surface-variant);"></i>

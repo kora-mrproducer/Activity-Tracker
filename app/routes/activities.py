@@ -1,7 +1,7 @@
 """
 Blueprint for activity-related routes (CRUD operations).
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
+from flask import current_app, Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from datetime import datetime, date, timezone, timedelta
 from io import BytesIO
 from app import db
@@ -285,7 +285,7 @@ def add_activity():
                 tags=request.form.get('tags', '')
             )
             db.session.add(activity)
-            db.session.commit()
+            db.session.flush()
 
             # Create initial update if observation provided
             if initial_obs:
@@ -296,13 +296,14 @@ def add_activity():
                     bp_snapshot=activity.blocking_points or ''
                 )
                 db.session.add(first_update)
-                db.session.commit()
+            db.session.commit()
             
             flash('Activity added successfully!', 'success')
             return redirect(url_for('activities.dashboard'))
         except Exception as e:
             db.session.rollback()
-            flash(f'Error adding activity: {str(e)}', 'error')
+            current_app.logger.exception('Error adding activity')
+            flash('Error adding activity. Please try again.', 'error')
             return redirect(url_for('activities.add_activity'))
     
     return render_template('add_activity.html', clone_source=clone_source)
@@ -359,13 +360,14 @@ def edit_activity(id):
             return redirect(url_for('activities.dashboard'))
         except Exception as e:
             db.session.rollback()
-            flash(f'Error updating activity: {str(e)}', 'error')
+            current_app.logger.exception('Error updating activity')
+            flash('Error updating activity. Please try again.', 'error')
             return redirect(url_for('activities.edit_activity', id=id))
     
     return render_template('edit_activity.html', activity=activity, updates=updates)
 
 
-@activities_bp.route('/delete/<int:id>')
+@activities_bp.route('/delete/<int:id>', methods=['POST'])
 def delete_activity(id):
     """Delete an activity"""
     activity = db.session.get(Activity, id)
@@ -377,7 +379,8 @@ def delete_activity(id):
         flash('Activity deleted successfully!', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error deleting activity: {str(e)}', 'error')
+        current_app.logger.exception('Error deleting activity')
+        flash('Error deleting activity. Please try again.', 'error')
     
     return redirect(url_for('activities.dashboard'))
 
@@ -493,7 +496,8 @@ def add_update(id):
             flash('Update cannot be empty.', 'error')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error adding update: {str(e)}', 'error')
+        current_app.logger.exception('Error adding update')
+        flash('Error adding update. Please try again.', 'error')
     
     redirect_target = request.form.get('redirect')
     if redirect_target == 'dashboard':
@@ -549,36 +553,54 @@ def update_status(id):
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
+        current_app.logger.exception('Status update failed')
+        return jsonify({'ok': False, 'error': 'Status update failed'}), 500
+
+
+def selected_activities(data):
+    ids = data.get('activity_ids')
+    if not isinstance(ids, list) or not ids or len(ids) > 1000 or any(type(i) is not int or i <= 0 for i in ids):
+        abort(400, description='activity_ids must contain positive integers')
+    ids = set(ids)
+    activities = Activity.query.filter(Activity.id.in_(ids)).all()
+    if len(activities) != len(ids):
+        abort(404, description='One or more activities were not found')
+    return activities
 
 
 @activities_bp.route('/activities/bulk/priority', methods=['POST'])
 def bulk_update_priority():
-    """Update priority for multiple activities at once"""
-    try:
-        data = request.get_json(silent=True) or {}
-        activity_ids = data.get('activity_ids', [])
-        new_priority = data.get('priority', '').strip()
-        
-        if not activity_ids or not isinstance(activity_ids, list):
-            return jsonify({'ok': False, 'error': 'activity_ids must be a non-empty array'}), 400
-        
-        allowed_priorities = {'High', 'Medium', 'Low'}
-        if new_priority not in allowed_priorities:
-            return jsonify({'ok': False, 'error': 'Invalid priority. Must be High, Medium, or Low'}), 400
-        
-        updated_count = Activity.query.filter(Activity.id.in_(activity_ids)).update(
-            {'priority': new_priority},
-            synchronize_session=False
-        )
-        
-        db.session.commit()
-        
-        return jsonify({
-            'ok': True,
-            'updated_count': updated_count,
-            'priority': new_priority
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        abort(400)
+    priority = data.get('priority')
+    if priority not in ('High', 'Medium', 'Low'):
+        abort(400, description='Invalid priority')
+    activities = selected_activities(data)
+    for activity in activities:
+        activity.priority = priority
+    db.session.commit()
+    return jsonify(ok=True, updated_count=len(activities), priority=priority)
+
+
+@activities_bp.route('/activities/bulk/close', methods=['POST'])
+def bulk_close():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        abort(400)
+    note = data.get('closing_note')
+    if not isinstance(note, str) or not note.strip():
+        abort(400, description='A closing note is required')
+    activities = selected_activities(data)
+    count = 0
+    for activity in activities:
+        if activity.status == 'Closed':
+            continue
+        activity.status = 'Closed'
+        activity.end_date = activity.end_date or date.today()
+        activity.observations = '[CLOSED] ' + note.strip()
+        db.session.add(Update(activity_id=activity.id, text=activity.observations,
+                              bp_snapshot=activity.blocking_points or ''))
+        count += 1
+    db.session.commit()
+    return jsonify(ok=True, updated_count=count)

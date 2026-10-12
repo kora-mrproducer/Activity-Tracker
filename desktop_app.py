@@ -14,7 +14,7 @@ import signal
 import subprocess
 import traceback
 from app import create_app, db
-from app.utils import backup_database
+from app.utils import backup_database, initialize_database
 
 
 def open_browser(url: str, delay: float = 1.5):
@@ -276,7 +276,7 @@ def main():
     # Ensure database exists and make a startup backup (throttling could be added later)
     try:
         with app.app_context():
-            db.create_all()
+            initialize_database(app, db)
             backup_database(app, db)
     except Exception as e:
         print(f"Startup database initialization failed: {e}")
@@ -285,7 +285,9 @@ def main():
         except Exception:
             pass
         traceback.print_exc()
-        # Continue; app might still run for health/info routes
+        os.close(lock_fd)
+        os.remove(os.path.join(app.instance_path, LOCK_FILE))
+        return
 
     port = find_available_port(5000, max_tries=6)
     url = f'http://127.0.0.1:{port}/'

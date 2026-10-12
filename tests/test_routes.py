@@ -162,7 +162,7 @@ class TestDeleteActivityRoute:
     def test_delete_activity(self, client, sample_activity, db_session):
         """Test deleting an activity"""
         activity_id = sample_activity.id
-        response = client.get(f'/delete/{activity_id}', follow_redirects=True)
+        response = client.post(f'/delete/{activity_id}', follow_redirects=True)
         assert response.status_code == 200
         
         # Verify activity was deleted
@@ -172,7 +172,7 @@ class TestDeleteActivityRoute:
     
     def test_delete_nonexistent_activity(self, client):
         """Test deleting non-existent activity"""
-        response = client.get('/delete/99999')
+        response = client.post('/delete/99999')
         assert response.status_code == 404
 
 class TestCompletedRoute:

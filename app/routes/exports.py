@@ -23,25 +23,6 @@ def export_all():
     - updates.json
     Returns ZIP as attachment.
     """
-    # Locate DB file (instance path configured in app)
-    # Derive physical SQLite file path. Prefer instance/tracker.db if present.
-    db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
-    physical_path = None
-    if db_uri.startswith('sqlite:///'):
-        candidate = db_uri.replace('sqlite:///', '', 1)
-        physical_path = candidate
-    # Fallback to instance tracker.db (used elsewhere in app)
-    inst_candidate = os.path.join(current_app.instance_path, 'tracker.db')
-    if os.path.exists(inst_candidate):
-        physical_path = inst_candidate
-    if not physical_path or not os.path.exists(physical_path):
-        # If file doesn't exist yet (fresh test DB), create it via create_all
-        from app import db
-        with current_app.app_context():
-            db.create_all()
-        if not physical_path or not os.path.exists(physical_path):
-            abort(404, description='Database file not found.')
-
     # Query data
     activities = Activity.query.order_by(Activity.id).all()
     goals = Goal.query.order_by(Goal.id).all()
@@ -51,7 +32,13 @@ def export_all():
     zip_io = BytesIO()
     with zipfile.ZipFile(zip_io, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
         # Add raw DB
-        zf.write(physical_path, arcname='activity_tracker.db')
+        from app import db
+        from app.utils import sqlite_snapshot
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            snapshot = os.path.join(temporary, 'snapshot.db')
+            sqlite_snapshot(db, snapshot)
+            zf.write(snapshot, arcname='activity_tracker.db')
 
         # Activities CSV
         act_csv_io = StringIO()

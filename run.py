@@ -2,7 +2,7 @@
 import os
 import socket
 from app import create_app
-from app.utils import backup_database
+from app.utils import backup_database, initialize_database
 
 
 # Create application instance via factory
@@ -22,11 +22,11 @@ def _find_port(preferred=5000, max_tries=4):
 if __name__ == '__main__':
     with app.app_context():
         from app import db
-        db.create_all()
+        initialize_database(app, db)
         backup_database(app, db)
 
     # Allow overriding host/port via environment (useful for Docker)
-    host = os.getenv('HOST', '127.0.0.1')
+    host = '127.0.0.1'
     env_port = os.getenv('PORT', '').strip()
     if env_port.isdigit():
         port = int(env_port)

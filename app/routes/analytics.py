@@ -1,7 +1,7 @@
 """
 Blueprint for analytics and timeline routes.
 """
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, abort
 from datetime import date, datetime, timezone, timedelta
 from collections import Counter
 from app.models import Activity, Update
@@ -9,18 +9,9 @@ from app import db
 
 analytics_bp = Blueprint('analytics', __name__)
 
-# Simple in-memory cache for analytics (expires after 5 minutes)
-_analytics_cache = {'data': None, 'expires': None}
-
-
 @analytics_bp.route('/analytics')
 def analytics():
     """Analytics dashboard with comprehensive stats"""
-    # Check cache first
-    now = datetime.now(timezone.utc)
-    if _analytics_cache['expires'] and now < _analytics_cache['expires']:
-        return render_template('analytics.html', **_analytics_cache['data'])
-    
     # Calculate fresh statistics
     today = date.today()
     
@@ -91,9 +82,6 @@ def analytics():
     priority_medium = db.session.query(func.count(Activity.id)).filter(Activity.priority == 'Medium').scalar()
     priority_low = db.session.query(func.count(Activity.id)).filter(Activity.priority == 'Low').scalar()
     
-    if priority_high == 0 and priority_medium == 0 and priority_low == 0:
-        priority_low = 1  # Prevent empty chart
-    
     # Status distribution - use SQL queries
     status_ongoing = ongoing_count  # Already calculated
     status_closed = db.session.query(func.count(Activity.id)).filter(Activity.status == 'Closed').scalar()
@@ -106,7 +94,8 @@ def analytics():
     completion_months = []
     completion_counts = []
     for i in range(5, -1, -1):  # Approximate past 6 months (30-day chunks)
-        month_date = today.replace(day=1) - timedelta(days=i*30)
+        month_index = today.year * 12 + today.month - 1 - i
+        month_date = date(month_index // 12, month_index % 12 + 1, 1)
         month_label = month_date.strftime('%b %Y')
         count = len([a for a in all_activities 
                     if a.status == 'Closed' and a.end_date and 
@@ -200,8 +189,6 @@ def analytics():
         'long_running_activities': long_running,
         'stale_activities_list': stale_activities
     }
-    _analytics_cache['data'] = template_context
-    _analytics_cache['expires'] = now + timedelta(minutes=5)
     
     return render_template('analytics.html', **template_context)
 
@@ -220,7 +207,13 @@ def timeline():
     if range_days == 'all':
         start_range = date(2020, 1, 1)
     else:
-        start_range = today - timedelta(days=int(range_days))
+        try:
+            days = int(range_days)
+            if not 1 <= days <= 36500:
+                raise ValueError
+        except ValueError:
+            abort(400, description='Invalid timeline range')
+        start_range = today - timedelta(days=days)
     
     # Query activities
     query = Activity.query
