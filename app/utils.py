@@ -55,9 +55,10 @@ def ensure_update_bp_column(db):
 def sqlite_snapshot(db, destination):
     """Copy a consistent SQLite snapshot, including committed WAL contents."""
     import sqlite3
+    from contextlib import closing
     source = db.engine.raw_connection()
     try:
-        with sqlite3.connect(str(destination)) as target:
+        with closing(sqlite3.connect(str(destination))) as target:
             source.driver_connection.backup(target)
             if target.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                 raise RuntimeError('Database backup failed integrity check')

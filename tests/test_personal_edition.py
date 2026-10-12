@@ -1,5 +1,6 @@
 """Regression coverage for local access, protected mutations and durable data."""
 import io
+from contextlib import closing
 import re
 import sqlite3
 import zipfile
@@ -67,7 +68,7 @@ def test_export_contains_current_database(client, sample_activity, tmp_path):
     with zipfile.ZipFile(io.BytesIO(response.data)) as bundle:
         snapshot = tmp_path / 'export.db'
         snapshot.write_bytes(bundle.read('activity_tracker.db'))
-        with sqlite3.connect(snapshot) as conn:
+        with closing(sqlite3.connect(snapshot)) as conn:
             assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
             assert conn.execute('SELECT activity_desc FROM activities WHERE id=?', (sample_activity.id,)).fetchone()[0] == sample_activity.activity_desc
 
@@ -84,7 +85,7 @@ def test_fresh_migrations_and_wal_backup(monkeypatch, tmp_path):
         db.session.add(activity)
         db.session.commit()
         backup = backup_database(application, db)
-        with sqlite3.connect(backup) as conn:
+        with closing(sqlite3.connect(backup)) as conn:
             assert conn.execute('SELECT activity_desc FROM activities').fetchone()[0] == 'Persisted in WAL'
         assert Path(application.instance_path).parent == tmp_path
     assert application.test_client().get('/').status_code == 200
