@@ -237,46 +237,8 @@ document.addEventListener('click', function(e) {
     e.preventDefault();
     
     const id = btn.getAttribute('data-activity-id');
-    const desc = btn.getAttribute('data-activity-desc');
-    
-    if (!confirm(`Delete "${desc}"?`)) return;
-    
-    const row = btn.closest('tr');
-    const parent = row.parentElement;
-    let deletedActivity = { id, row, parent };
-    
-    row.remove();
-    
-    if (typeof showToast === 'function') {
-        const wrap = document.getElementById('toast-container');
-        if (wrap) {
-            const d = document.createElement('div');
-            d.className = 'toast toast-info';
-            d.innerHTML = `<span>Deleted "${desc}"</span><button class='ml-2 underline' onclick='undoCompletedDelete()'>Undo</button>`;
-            wrap.appendChild(d);
-            
-            window.undoCompletedDelete = function() {
-                if (deletedActivity) {
-                    deletedActivity.parent.appendChild(deletedActivity.row);
-                    deletedActivity = null;
-                    showToast('Deletion cancelled', 'success', 1500);
-                }
-            };
-            
-            setTimeout(() => {
-                if (deletedActivity && deletedActivity.id === id) {
-                    fetch('/delete/' + id).then(() => {
-                        deletedActivity = null;
-                        showToast('Activity deleted', 'success');
-                    });
-                }
-                d.style.opacity = '0';
-                setTimeout(() => d.remove(), 300);
-            }, 15000);
-        }
-    } else {
-        fetch('/delete/' + id).then(() => window.location.reload());
-    }
+    const desc = btn.getAttribute('data-activity-desc') || 'this activity';
+    deleteActivity(id, desc);
 });
 </script>
 {% endblock %}

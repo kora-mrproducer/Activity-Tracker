@@ -1,7 +1,7 @@
 """
 Application factory for the Activity Tracker.
 """
-from flask import Flask, g, request as flask_request
+from flask import Flask, g, request as flask_request, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
@@ -44,8 +44,10 @@ def create_app(config_name='default'):
     template_dir = (base_dir / 'templates').resolve()
     static_dir = (base_dir / 'static').resolve()
 
-    # Ensure instance folder lives alongside executable when frozen
-    instance_path = (base_dir / 'instance').resolve()
+    # Store mutable data outside bundled resources.
+    data_dir = Path(os.environ.get('ACTIVITY_TRACKER_DATA_DIR') or (Path(os.environ.get('LOCALAPPDATA', str(Path.home() / '.local' / 'share'))) / 'ActivityTracker' if getattr(sys, 'frozen', False) else base_dir))
+    instance_path = (data_dir / 'instance').resolve()
+    instance_path.mkdir(parents=True, exist_ok=True)
 
     app = Flask(
         __name__,
@@ -58,6 +60,7 @@ def create_app(config_name='default'):
     # Load configuration
     from config import config
     app.config.from_object(config[config_name])
+    app.config['MIGRATIONS_DIR'] = str(base_dir / 'migrations')
 
     # Ensure SQLite DB path is inside instance folder for portability
     uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
@@ -77,10 +80,10 @@ def create_app(config_name='default'):
                 pass
             app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{abs_db_path}"
 
-    # When frozen, override paths to ensure writability next to the executable
-    if getattr(sys, 'frozen', False):
-        logs_dir = str((base_dir / 'logs').resolve())
-        backups_dir = str((base_dir / 'backups').resolve())
+    # Bundle resources may be read-only; logs and backups belong in the data directory.
+    if getattr(sys, 'frozen', False) or os.environ.get('ACTIVITY_TRACKER_DATA_DIR'):
+        logs_dir = str((data_dir / 'logs').resolve())
+        backups_dir = str((data_dir / 'backups').resolve())
         os.makedirs(logs_dir, exist_ok=True)
         os.makedirs(backups_dir, exist_ok=True)
         try:
@@ -113,6 +116,23 @@ def create_app(config_name='default'):
     except OSError:
         pass
     
+    @app.before_request
+    def local_access_only():
+        # Host validation prevents DNS rebinding; Origin validation protects local data.
+        from ipaddress import ip_address
+        try:
+            if not ip_address(flask_request.remote_addr or '127.0.0.1').is_loopback:
+                abort(403)
+        except ValueError:
+            abort(403)
+        if flask_request.host.split(':', 1)[0].lower() not in {'localhost', '127.0.0.1'}:
+            abort(403)
+        origin = flask_request.headers.get('Origin')
+        if origin and origin != flask_request.host_url.rstrip('/'):
+            abort(403)
+        if flask_request.headers.get('Sec-Fetch-Site') == 'cross-site':
+            abort(403)
+
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
@@ -206,26 +226,7 @@ def register_blueprints(app):
 
 def register_error_handlers(app):
     """Register error handlers"""
-    from flask import redirect, url_for, flash, request
-    
-    @app.errorhandler(404)
-    def not_found_error(error):
-        """Handle 404 errors"""
-        request_id = getattr(g, 'request_id', 'unknown')
-        app.logger.warning(
-            f'[{request_id}] 404 Error: {error} - '
-            f'{flask_request.method} {flask_request.path} from {flask_request.remote_addr}'
-        )
-        # Return 404 status for API/test requests; redirect for browser
-        # Check if this is a test environment or if the user agent suggests automated client
-        is_test = app.config.get('TESTING', False)
-        is_api = request and request.path.startswith('/api/')
-        accepts_json = request and request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
-        
-        if is_test or is_api or accepts_json:
-            return {'error': 'Not found'}, 404
-        flash('Page not found.', 'error')
-        return redirect(url_for('activities.dashboard')), 302
+    from flask import request, render_template
     
     @app.errorhandler(500)
     def internal_error(error):
@@ -259,7 +260,7 @@ def register_error_handlers(app):
         is_api = request and request.path.startswith('/api/')
         accepts_json = request and request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
         
-        if is_api or accepts_json:
+        if app.testing or is_api or accepts_json:
             return {'error': 'Not found'}, 404
         
         # Render custom 404 error page
@@ -287,6 +288,10 @@ def register_request_hooks(app):
         
         # Add request ID to response headers
         response.headers['X-Request-ID'] = request_id
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        if not flask_request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'no-store'
         
         # Log access line
         app.logger.info(
@@ -306,8 +311,9 @@ def register_cli(app):
     def init_db_command():
         """Initialize database tables (use 'flask db upgrade' for migrations)."""
         with app.app_context():
-            db.create_all()
-            click.echo("✓ Database initialized (create_all). For schema migrations, run: flask db upgrade")
+            from app.utils import initialize_database
+            initialize_database(app, db)
+            click.echo('Database initialized with migrations.')
 
     @app.cli.command("backup-now")
     def backup_now_command():

@@ -14,7 +14,6 @@ def health():
         'env': current_app.config.get('ENV', 'production'),
         'debug': bool(current_app.debug),
         'testing': bool(current_app.testing),
-        'db_uri': current_app.config.get('SQLALCHEMY_DATABASE_URI', ''),
         'version': current_app.config.get('__version__', None) or getattr(current_app, '__version__', None)
     }
     return jsonify(info), 200
@@ -31,7 +30,14 @@ def favicon():
 def manifest():
     """Serve PWA manifest for standalone app mode."""
     return send_from_directory(
-        os.path.join(current_app.root_path, '..', 'static'),
+        current_app.static_folder,
         'manifest.json',
         mimetype='application/manifest+json'
     )
+
+
+@system_bp.route('/sw.js')
+def service_worker():
+    response = send_from_directory(current_app.static_folder, 'sw.js', mimetype='application/javascript')
+    response.headers['Cache-Control'] = 'no-cache'
+    return response

@@ -213,13 +213,13 @@
         {% if goals %}
             {% for goal in goals %}
             <div class="flex items-center p-2 bg-dark rounded hover:bg-dark-hover transition">
-                <a href="{{ url_for('goals.toggle_goal', id=goal.id) }}" class="mr-2">
+                <form method="post" action="{{ url_for('goals.toggle_goal', id=goal.id) }}" class="mr-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" aria-label="Toggle goal completion">
                     {% if goal.is_complete %}
                         <i class="fas fa-check-circle text-green-400 text-sm"></i>
                     {% else %}
                         <i class="far fa-circle text-secondary text-sm"></i>
                     {% endif %}
-                </a>
+                </button></form>
                 <span class="flex-1 text-sm {% if goal.is_complete %}line-through text-secondary{% else %}text-white{% endif %}">
                     {{ goal.text }}
                 </span>

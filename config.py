@@ -15,18 +15,11 @@ class Config:
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     
     # Secret key management
-    SECRET_KEY_FILE = os.path.join(BASE_DIR, '.secret_key')
-    
-    # Generate or load secret key
-    if os.path.exists(SECRET_KEY_FILE):
-        with open(SECRET_KEY_FILE, 'r') as f:
-            SECRET_KEY = f.read().strip()
-    else:
-        # Generate new secret key
-        SECRET_KEY = secrets.token_hex(32)
-        with open(SECRET_KEY_FILE, 'w') as f:
-            f.write(SECRET_KEY)
-    
+    SECRET_KEY = secrets.token_hex(32)
+    MAX_CONTENT_LENGTH = 2 * 1024 * 1024
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Strict'
+
     # Database configuration
     SQLALCHEMY_DATABASE_URI = 'sqlite:///tracker.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False

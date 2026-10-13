@@ -1,3 +1,7 @@
+# Personal Edition stabilization
+
+See [PERSONAL_EDITION.md](PERSONAL_EDITION.md) for the current local-only setup, data paths and Windows build instructions. Earlier hosting and release instructions below describe the original version.
+
 # Activity Tracker
 
 A standalone desktop application for tracking activities, tasks, and projects with analytics, timeline views, and comprehensive reporting.

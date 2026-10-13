@@ -1,39 +1,66 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
-name: Python application
-
+name: Personal Edition checks
 on:
   push:
-    branches: [ "main" ]
+    branches: [main, 'fix/**']
   pull_request:
-    branches: [ "main" ]
-
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
-
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        pytest
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m flake8 . --select=E9,F63,F7,F82 --show-source
+      - run: python -m pytest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/frontend-security.cjs
+  windows-package:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt pyinstaller==6.20.0
+      - run: python -m PyInstaller --clean --noconfirm ActivityTracker.spec
+      - name: Smoke-test packaged application
+        shell: pwsh
+        run: |
+          $env:ACTIVITY_TRACKER_DATA_DIR = Join-Path $env:RUNNER_TEMP 'tracker-smoke'
+          $env:ACTIVITY_TRACKER_NO_GRACE = '1'
+          $stdout = Join-Path $env:RUNNER_TEMP 'tracker-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'tracker-stderr.log'
+          $process = Start-Process -FilePath '.\dist\ActivityTracker\ActivityTracker.exe' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $healthy = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              try {
+                $response = Invoke-WebRequest 'http://127.0.0.1:5000/health'
+                if ($response.StatusCode -eq 200) { $healthy = $true; break }
+              } catch {}
+              if ($process.HasExited) { throw 'Executable exited during startup' }
+            }
+            if (-not $healthy) { throw 'Packaged application did not become healthy' }
+            $export = Invoke-WebRequest 'http://127.0.0.1:5000/export/all'
+            if ($export.StatusCode -ne 200) { throw 'Packaged export failed' }
+          } finally {
+            Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+            Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ActivityTracker-Windows-Personal-Edition
+          path: dist/ActivityTracker/

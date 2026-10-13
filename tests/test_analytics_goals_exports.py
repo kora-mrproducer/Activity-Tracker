@@ -80,7 +80,7 @@ class TestGoalRoutes:
         """Test toggling goal completion status"""
         initial_status = sample_goal.is_complete
         
-        response = client.get(f'/goal/toggle/{sample_goal.id}', follow_redirects=True)
+        response = client.post(f'/goal/toggle/{sample_goal.id}', follow_redirects=True)
         assert response.status_code == 200
         
         # Verify status toggled
@@ -92,18 +92,18 @@ class TestGoalRoutes:
         initial_status = sample_goal.is_complete
         
         # Toggle once
-        client.get(f'/goal/toggle/{sample_goal.id}', follow_redirects=True)
+        client.post(f'/goal/toggle/{sample_goal.id}', follow_redirects=True)
         db_session.refresh(sample_goal)
         assert sample_goal.is_complete != initial_status
         
         # Toggle again
-        client.get(f'/goal/toggle/{sample_goal.id}', follow_redirects=True)
+        client.post(f'/goal/toggle/{sample_goal.id}', follow_redirects=True)
         db_session.refresh(sample_goal)
         assert sample_goal.is_complete == initial_status
     
     def test_toggle_nonexistent_goal(self, client):
         """Test toggling non-existent goal"""
-        response = client.get('/goal/toggle/99999')
+        response = client.post('/goal/toggle/99999')
         assert response.status_code == 404
 
 class TestExportRoutes:
@@ -245,7 +245,7 @@ class TestIntegrationScenarios:
         assert goal.is_complete is False
         
         # Complete goal
-        response = client.get(f'/goal/toggle/{goal.id}', follow_redirects=True)
+        response = client.post(f'/goal/toggle/{goal.id}', follow_redirects=True)
         assert response.status_code == 200
         
         db_session.refresh(goal)

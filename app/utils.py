@@ -52,44 +52,46 @@ def ensure_update_bp_column(db):
         pass
 
 
-def backup_database(app, db):
-    """Create a backup of the database file"""
+def sqlite_snapshot(db, destination):
+    """Copy a consistent SQLite snapshot, including committed WAL contents."""
+    import sqlite3
+    from contextlib import closing
+    source = db.engine.raw_connection()
     try:
-        db_path = os.path.join(app.instance_path, 'tracker.db')
-        if not os.path.exists(db_path):
-            print("No database file found to backup")
-            return
-        
-        # Create backups directory
-        backup_dir = app.config.get('BACKUP_DIR', os.path.join(os.path.dirname(app.instance_path), 'backups'))
-        os.makedirs(backup_dir, exist_ok=True)
-        
-        # Create backup filename with timestamp
-        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
-        backup_filename = f'tracker_backup_{timestamp}.db'
-        backup_path = os.path.join(backup_dir, backup_filename)
-        
-        # Copy database file
-        shutil.copy2(db_path, backup_path)
-        
-        # Verify backup integrity
-        backup_size = os.path.getsize(backup_path)
-        original_size = os.path.getsize(db_path)
-        
-        if backup_size < 1024:  # Less than 1KB
-            os.remove(backup_path)
-            raise Exception(f"Backup file suspiciously small ({backup_size} bytes). Deleted.")
-        
-        if abs(backup_size - original_size) > original_size * 0.1:  # More than 10% difference
-            print(f"⚠ Warning: Backup size differs significantly from original ({backup_size} vs {original_size} bytes)")
-        
-        print(f"✓ Database backed up to: {backup_path} ({backup_size} bytes)")
-        
-        # Cleanup old backups
-        cleanup_old_backups(backup_dir, app.config.get('BACKUP_KEEP_COUNT', 7))
-        
-    except Exception as e:
-        print(f"Warning: Could not create backup: {e}")
+        with closing(sqlite3.connect(str(destination))) as target:
+            source.driver_connection.backup(target)
+            if target.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+                raise RuntimeError('Database backup failed integrity check')
+    finally:
+        source.close()
+
+
+def backup_database(app, db):
+    """Atomically publish a verified backup before pruning older backups."""
+    import tempfile
+    if db.engine.dialect.name != 'sqlite':
+        raise RuntimeError('Personal Edition requires SQLite')
+    backup_dir = app.config['BACKUP_DIR']
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')
+    backup_path = os.path.join(backup_dir, f'tracker_backup_{timestamp}.db')
+    fd, temporary = tempfile.mkstemp(dir=backup_dir, suffix='.tmp')
+    os.close(fd)
+    try:
+        sqlite_snapshot(db, temporary)
+        os.replace(temporary, backup_path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    cleanup_old_backups(backup_dir, app.config.get('BACKUP_KEEP_COUNT', 7))
+    app.logger.info('Database backup completed')
+    return backup_path
+
+
+def initialize_database(app, db):
+    """Apply versioned migrations; refuse to silently stamp an unknown schema."""
+    from flask_migrate import upgrade
+    upgrade(directory=app.config['MIGRATIONS_DIR'])
 
 
 def cleanup_old_backups(backup_dir, keep_count=7):

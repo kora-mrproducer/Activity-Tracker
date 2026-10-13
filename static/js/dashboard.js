@@ -352,41 +352,26 @@ window.toggleBulkMode = function() {
 };
 
 window.cancelBulkMode = function() {
-    bulkMode = false;
+    bulkMode = true;
     toggleBulkMode();
 };
 
-window.bulkCloseSelected = function() {
-    const checkboxes = document.querySelectorAll('.bulk-checkbox:checked');
-    if (checkboxes.length === 0) {
-        if (typeof showToast === 'function') showToast('No activities selected', 'error');
-        return;
-    }
-    
-    if (!confirm(`Close ${checkboxes.length} selected activities?`)) return;
-    
-    let completed = 0;
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-    const headers = { 'Content-Type': 'application/json' };
-    if (csrfToken) {
-        headers['X-CSRFToken'] = csrfToken;
-        headers['X-CSRF-Token'] = csrfToken;
-    }
-    
-    checkboxes.forEach(cb => {
-        const id = cb.getAttribute('data-activity-id');
-        fetch('/activity/' + id + '/status', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({ status: 'Closed' })
-        }).then(() => {
-            completed++;
-            if (completed === checkboxes.length) {
-                if (typeof showToast === 'function') showToast(`Closed ${completed} activities`, 'success');
-                setTimeout(() => window.location.reload(), 1000);
-            }
+window.bulkCloseSelected = async function() {
+    const ids = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => Number(cb.dataset.activityId));
+    if (!ids.length) return showToast('No activities selected', 'error');
+    const note = prompt(`Closing note for ${ids.length} activities:`);
+    if (!note || !note.trim()) return;
+    try {
+        const response = await fetch('/activities/bulk/close', {
+            method: 'POST', headers: mutationHeaders(),
+            body: JSON.stringify({activity_ids: ids, closing_note: note})
         });
-    });
+        if (!response.ok) throw new Error('Could not close selected activities');
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || 'Bulk close failed');
+        showToast(`Closed ${data.updated_count} activities`, 'success');
+        setTimeout(() => window.location.reload(), 500);
+    } catch (error) { showToast(error.message, 'error'); }
 };
 
 window.bulkSetPriority = function() {
@@ -406,7 +391,7 @@ window.bulkSetPriority = function() {
     
     fetch('/activities/bulk/priority', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: mutationHeaders(),
         body: JSON.stringify({ activity_ids: activityIds, priority: priority })
     })
     .then(res => res.json())
@@ -536,10 +521,10 @@ document.addEventListener('click', function(e) {
         if (!wrap) return;
         const full = wrap.getAttribute('data-full') || '';
         if (snapTgl.getAttribute('data-state') === 'collapsed') {
-            wrap.innerHTML = `${full} <button type="button" class="text-[10px] underline snapshot-toggle" data-state="expanded">less</button>`;
+            wrap.innerHTML = `${escapeHtml(full)} <button type="button" class="text-[10px] underline snapshot-toggle" data-state="expanded">less</button>`;
         } else {
             const short = (full.length > 100) ? full.slice(0,100) + '...' : full;
-            wrap.innerHTML = `${short} <button type="button" class="text-[10px] underline snapshot-toggle" data-state="collapsed">more</button>`;
+            wrap.innerHTML = `${escapeHtml(short)} <button type="button" class="text-[10px] underline snapshot-toggle" data-state="collapsed">more</button>`;
         }
         return;
     }
@@ -662,34 +647,12 @@ document.addEventListener('submit', function(e){
     });
 });
 
-// Delete with undo
-document.addEventListener('click', function(e){
-    const delBtn = e.target.closest('.delete-activity-btn');
-    if(!delBtn) return;
+// Delete only after the protected request succeeds.
+document.addEventListener('click', function(e) {
+    const button = e.target.closest('.delete-activity-btn');
+    if (!button) return;
     e.preventDefault();
-    const id = delBtn.getAttribute('data-id');
-    const desc = delBtn.getAttribute('data-desc') || 'this activity';
-    const row = delBtn.closest('tr');
-    if(!row) return;
-    // Store for undo
-    deletedActivity = { id: id, row: row.cloneNode(true), parent: row.parentNode };
-    row.remove();
-    // Show toast with undo
-    if(typeof showToast === 'function'){
-        const wrap = document.getElementById('toast-container'); if(!wrap) return;
-        const d=document.createElement('div'); d.className='toast toast-info';
-        d.innerHTML = `<span>Deleted "${desc}"</span><button class='ml-2 underline' onclick='undoDelete()'>Undo</button>`;
-        wrap.appendChild(d);
-        setTimeout(()=>{
-            if(deletedActivity && deletedActivity.id === id){
-                fetch('/delete/' + id).then(()=>{ deletedActivity = null; });
-            }
-            d.style.opacity='0'; d.style.transition='opacity .3s'; setTimeout(()=>d.remove(),300);
-        }, 15000);
-    } else {
-        // Fallback: immediate delete
-        fetch('/delete/' + id).then(()=>window.location.reload());
-    }
+    deleteActivity(button.dataset.id, button.dataset.desc || 'this activity');
 });
 
 // Inline quick update with Ctrl+Enter
