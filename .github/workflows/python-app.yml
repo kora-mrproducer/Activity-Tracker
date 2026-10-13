@@ -40,7 +40,9 @@ jobs:
         run: |
           $env:ACTIVITY_TRACKER_DATA_DIR = Join-Path $env:RUNNER_TEMP 'tracker-smoke'
           $env:ACTIVITY_TRACKER_NO_GRACE = '1'
-          $process = Start-Process -FilePath '.\dist\ActivityTracker\ActivityTracker.exe' -PassThru
+          $stdout = Join-Path $env:RUNNER_TEMP 'tracker-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'tracker-stderr.log'
+          $process = Start-Process -FilePath '.\dist\ActivityTracker\ActivityTracker.exe' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
             $healthy = $false
             for ($i = 0; $i -lt 30; $i++) {
@@ -56,6 +58,7 @@ jobs:
             if ($export.StatusCode -ne 200) { throw 'Packaged export failed' }
           } finally {
             Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+            Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
           }
       - uses: actions/upload-artifact@v4
         with:

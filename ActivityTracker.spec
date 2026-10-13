@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = [('templates', 'templates'), ('static', 'static'), ('migrations', 'migrations')]
 binaries = []
-hiddenimports = collect_submodules('app') + collect_submodules('reportlab')
+hiddenimports = ['logging.config'] + collect_submodules('app') + collect_submodules('reportlab')
 for package in ('xhtml2pdf', 'alembic'):
     extra_data, extra_binaries, extra_imports = collect_all(package)
     datas += extra_data
